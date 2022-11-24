@@ -1,9 +1,27 @@
 numpy
 pandas
+scipy
+scikit-learn
 matplotlib
+GPUtil
+setuptools
+keras
+umap
+more-itertools
+ipdb
+biosppy
+seaborn
+tensorflow-probability
+gast
+imageio
+fs
+click
 scikit-learn
 black
 pre-commit
 tqdm
 tensorboard
 more_itertools
+tensorflow-gpu==1.15
+# git+https://github.com/haowen-xu/tfsnippet.git
+# git+https://github.com/thu-ml/zhusuan.git

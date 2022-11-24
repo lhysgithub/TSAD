@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="808" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="gpu" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
     <serverData>
       <paths name="808">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="daxing">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="gpu">
         <serverdata>
           <mappings>
             <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" />

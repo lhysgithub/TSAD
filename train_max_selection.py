@@ -1,22 +1,121 @@
-import json
 from datetime import datetime
 import torch.nn as nn
+import random
 
 from args import get_parser
 from utils import *
 from mtad_gat import MTAD_GAT
-from prediction import Predictor
-from training import Trainer
+from prediction_for_search import Predictor
+from training_for_search import Trainer
 
 
-if __name__ == "__main__":
+def filter_input(select, x_train):
+    temp_x_train = []
+    for i in range(len(select)):
+        xi = x_train[:, select[i]].reshape(-1, 1)
+        if i == 0:
+            temp_x_train = xi
+        else:
+            temp_x_train = np.concatenate((temp_x_train, xi), axis=1)
+    return temp_x_train
+
+
+def filter_input_by_bool(select, x_train):
+    temp_x_train = []
+    first = 0
+    for i in range(len(select)):
+        xi = x_train[:,i].reshape(-1, 1)
+        if select[i]:
+            if first == 0:
+                temp_x_train = xi
+                first = 1
+            else:
+                temp_x_train = np.concatenate((temp_x_train, xi), axis=1)
+    return temp_x_train
+
+
+def list2bin(l,max_dim):
+    bin = []
+    for i in range(max_dim):
+        if i in l:
+            bin.append("1")
+        else:
+            bin.append("0")
+    return "".join(bin)
+
+
+def bool_list2bin(l):
+    bin = []
+    for i in l:
+        if i:
+            bin.append("1")
+        else:
+            bin.append("0")
+    return "".join(bin)
+
+
+def bin2list(bin):
+    l = []
+    for i in range(len(bin)):
+        if bin[i] == "1":
+            l.append(i)
+    return l
+
+
+def get_f1(file_name):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary["bf_result"]["f1"]
+    return f1
+
+
+def split_val_set(x_test,y_test,val_ratio=0.05):
+    dataset_len = int(len(x_test))
+    val_use_len = int(dataset_len * val_ratio)
+    index_list = []
+    lens_list = []
+    find = 0
+    count = 0
+    for i in range(len(y_test)):
+        if int(y_test[i]) == 1:
+            index_list.append(i)
+            find = 1
+            count += 1
+        elif find == 1:
+            find = 0
+            lens_list.append(count)
+            count = 0
+    index = random.choice(index_list)
+    # i = np.argmax(lens_list)
+    # index = index_list[i]
+    start = 0
+    end = 0
+    if index < val_use_len/2:
+        start = 0
+        end = val_use_len
+    elif dataset_len - index < val_use_len/2:
+        start = dataset_len - val_use_len
+        end = dataset_len
+    else:
+        start = index - val_use_len/2
+        end = index + val_use_len/2
+    start = int(start)
+    end = int(end)
+    x_val = x_test[start:end]
+    y_val = y_test[start:end]
+    new_x_test = np.concatenate((x_test[:start],x_test[end:]))
+    new_y_test = np.concatenate((y_test[:start],y_test[end:]))
+    return x_val,y_val,new_x_test,new_y_test
+
+
+def main(feature_numbers, selected, dataset, group):
 
     id = datetime.now().strftime("%d%m%Y_%H%M%S")
 
     parser = get_parser()
     args = parser.parse_args()
 
-    dataset = args.dataset
+    args.dataset = dataset
     window_size = args.lookback
     spec_res = args.spec_res
     normalize = args.normalize
@@ -28,19 +127,17 @@ if __name__ == "__main__":
     use_cuda = args.use_cuda
     print_every = args.print_every
     log_tensorboard = args.log_tensorboard
-    group_index = args.group[0]
-    index = args.group[2:]
+    args.group = group
+    args.selected = selected
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda_device
     args_summary = str(args.__dict__)
     print(args_summary)
 
     if dataset == 'SMD':
         output_path = f'output/{dataset}/{args.group}'
-        # (x_train, _), (x_test, y_test) = get_data(f"machine-{group_index}-{index}", normalize=normalize)
-        (x_train, _), (x_test, y_test) = get_data_from_source(args,normalize=normalize)
+        (x_train, _), (x_test, y_test) = get_data_from_source(args, normalize=normalize)
     elif dataset in ['MSL', 'SMAP']:
         output_path = f'output/{dataset}/{args.group}'
-        # (x_train, _), (x_test, y_test) = get_data(dataset, normalize=normalize)
         (x_train, _), (x_test, y_test) = get_data_from_source(args, normalize=normalize)
     else:
         raise Exception(f'Dataset "{dataset}" not available.')
@@ -50,13 +147,18 @@ if __name__ == "__main__":
         os.makedirs(output_path)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    # save_path = f"{output_path}/{id}"
-    save_path = f"{output_path}/baseline"
+
+    bin_str = list2bin(selected,feature_numbers)
+    save_path = f"{output_path}/search_{bin_str}"
     if not os.path.exists(save_path):
         os.mkdir(save_path)
-
-    x_train = torch.from_numpy(x_train).float()
-    x_test = torch.from_numpy(x_test).float()
+    file_name = save_path + "/" + "summary.txt"
+    if os.path.exists(file_name):
+        return get_f1(file_name)
+    temp_x_train = filter_input(selected,x_train)
+    temp_x_test = filter_input(selected,x_test)
+    x_train = torch.from_numpy(temp_x_train).float()
+    x_test = torch.from_numpy(temp_x_test).float()
     n_features = x_train.shape[1]
 
     target_dims = get_target_dims(dataset)
@@ -176,3 +278,30 @@ if __name__ == "__main__":
     args_path = f"{save_path}/config.txt"
     with open(args_path, "w") as f:
         json.dump(args.__dict__, f, indent=2)
+
+    file_name = save_path+"/"+"summary.txt"
+    return get_f1(file_name)
+
+
+if __name__ == '__main__':
+    feature_numbers = 38
+    # select = range(feature_numbers)
+    # main(feature_numbers,select)
+    all = list(range(feature_numbers))
+    temp = []
+    for j in range(feature_numbers):
+        best_f1 = 0
+        best_id = -1
+        for i in range(feature_numbers):
+            if i in temp:
+                continue
+            selected = [i] + temp
+            f1 = main(feature_numbers, selected, "SMD", "1-8")
+            print(f"current f1: {f1}")
+            if best_f1 < f1:
+                best_f1 = f1
+                best_id = i
+        if best_id == -1:
+            res = [item for item in all if not item in temp]
+            best_id = random.choice(res)
+        temp = temp + [best_id]

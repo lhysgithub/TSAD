@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import torch
+import json
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
 
@@ -52,48 +53,44 @@ def get_target_dims(dataset):
     else:
         raise ValueError("unknown dataset " + str(dataset))
 
+def get_dataset_np(config):
+    dataset = config.dataset
+    if "WT" in dataset:
+        variable = config.group
+        train_df = pd.read_csv(f'./data/WT/{variable}/train_orig.csv', sep=",", header=None, dtype=np.float32).dropna(axis=0)
+        test_df = pd.read_csv(f'./data/WT/{variable}/test_orig.csv', sep=",", header=None, dtype=np.float32).dropna(axis=0)
+        train_df["y"] = np.zeros(train_df.shape[0])
 
-def get_data(dataset, max_train_size=None, max_test_size=None,
-             normalize=False, spec_res=False, train_start=0, test_start=0):
-    """
-    Get data from pkl files
+        # Get test anomaly labels
+        test_df.rename(columns={10:'y'}, inplace=True)
+        test_label = test_df['y']
+        test_df.drop('y', axis=1, inplace=True)
+        return train_df.to_numpy(), test_df.to_numpy(),test_label
+    elif "SMD" in dataset:
+        variable = config.group
+        train_df = pd.read_csv(f'./data/SMD/train/machine-{variable}.txt', header=None, sep=",", dtype = np.float32)
+        test_df = pd.read_csv(f'./data/SMD/test/machine-{variable}.txt', header=None, sep=",", dtype=np.float32)
 
-    return shape: (([train_size, x_dim], [train_size] or None), ([test_size, x_dim], [test_size]))
-    Method from OmniAnomaly (https://github.com/NetManAIOps/OmniAnomaly)
-    """
-    prefix = "datasets"
-    if str(dataset).startswith("machine"):
-        prefix += "/ServerMachineDataset/processed"
-    elif dataset in ["MSL", "SMAP"]:
-        prefix += "/data/processed"
-    if max_train_size is None:
-        train_end = None
-    else:
-        train_end = train_start + max_train_size
-    if max_test_size is None:
-        test_end = None
-    else:
-        test_end = test_start + max_test_size
-    print("load data of:", dataset)
-    print("train: ", train_start, train_end)
-    print("test: ", test_start, test_end)
-    x_dim = get_data_dim(dataset)
-    f = open(os.path.join(prefix, dataset + "_train.pkl"), "rb")
-    train_data = pickle.load(f).reshape((-1, x_dim))[train_start:train_end, :]
-    f.close()
-    try:
-        f = open(os.path.join(prefix, dataset + "_test.pkl"), "rb")
-        test_data = pickle.load(f).reshape((-1, x_dim))[test_start:test_end, :]
-        f.close()
-    except (KeyError, FileNotFoundError):
-        test_data = None
-    try:
-        f = open(os.path.join(prefix, dataset + "_test_label.pkl"), "rb")
-        test_label = pickle.load(f).reshape((-1))[test_start:test_end]
-        f.close()
-    except (KeyError, FileNotFoundError):
-        test_label = None
+        # Get test anomaly labels
+        test_labels = np.genfromtxt(f'./data/SMD/test_label/machine-{variable}.txt', dtype=np.float32, delimiter=',')
+        return train_df.to_numpy(), test_df.to_numpy(), test_labels
+    elif "SMAP" in dataset:
+        variable = config.group
+        train = np.load(f'./data/SMAP/train/{variable}.npy')
+        test = np.load(f'./data/SMAP/test/{variable}.npy')
+        test_label = np.zeros(len(test))
 
+        # Set test anomaly labels from files
+        labels = pd.read_csv(f'./data/SMAP/labeled_anomalies.csv', sep=",", index_col="chan_id")
+        label_str = labels.loc[variable, "anomaly_sequences"]
+        label_list = json.loads(label_str)
+        for i in label_list:
+            test_label[i[0]:i[1]+1] = 1
+        return train, test, test_label
+
+
+def get_data_from_source(args, normalize=False):
+    train_data, test_data, test_label = get_dataset_np(args)
     if normalize:
         train_data, scaler = normalize_data(train_data, scaler=None)
         test_data, _ = normalize_data(test_data, scaler=scaler)
@@ -102,6 +99,58 @@ def get_data(dataset, max_train_size=None, max_test_size=None,
     print("test set shape: ", test_data.shape)
     print("test set label shape: ", None if test_label is None else test_label.shape)
     return (train_data, None), (test_data, test_label)
+
+
+# def get_data(dataset, max_train_size=None, max_test_size=None,normalize=False, spec_res=False, train_start=0, test_start=0):
+#     """
+#     Get data from pkl files
+#
+#     return shape: (([train_size, x_dim], [train_size] or None), ([test_size, x_dim], [test_size]))
+#     Method from OmniAnomaly (https://github.com/NetManAIOps/OmniAnomaly)
+#     """
+#     prefix = "datasets"
+#     if str(dataset).startswith("machine"):
+#         prefix += "/ServerMachineDataset/processed"
+#     elif dataset in ["MSL", "SMAP"]:
+#         prefix += "/data/processed"
+#     if max_train_size is None:
+#         train_end = None
+#     else:
+#         train_end = train_start + max_train_size
+#     if max_test_size is None:
+#         test_end = None
+#     else:
+#         test_end = test_start + max_test_size
+#     print("load data of:", dataset)
+#     print("train: ", train_start, train_end)
+#     print("test: ", test_start, test_end)
+#     x_dim = get_data_dim(dataset)
+#     f = open(os.path.join(prefix, dataset + "_train.pkl"), "rb")
+#     train_data = pickle.load(f).reshape((-1, x_dim))[train_start:train_end, :]
+#     f.close()
+#     try:
+#         f = open(os.path.join(prefix, dataset + "_test.pkl"), "rb")
+#         test_data = pickle.load(f).reshape((-1, x_dim))[test_start:test_end, :]
+#         f.close()
+#     except (KeyError, FileNotFoundError):
+#         test_data = None
+#     try:
+#         f = open(os.path.join(prefix, dataset + "_test_label.pkl"), "rb")
+#         test_label = pickle.load(f).reshape((-1))[test_start:test_end]
+#         f.close()
+#     except (KeyError, FileNotFoundError):
+#         test_label = None
+#
+#     if normalize:
+#         train_data, scaler = normalize_data(train_data, scaler=None)
+#         test_data, _ = normalize_data(test_data, scaler=scaler)
+#
+#     print("train set shape: ", train_data.shape)
+#     print("test set shape: ", test_data.shape)
+#     print("test set label shape: ", None if test_label is None else test_label.shape)
+#     return (train_data, None), (test_data, test_label)
+
+
 
 
 class SlidingWindowDataset(Dataset):
@@ -216,15 +265,18 @@ def adjust_anomaly_scores(scores, dataset, is_train, lookback):
     :param lookback: lookback (window size) used in model
     """
 
+    return scores
+
+    # ？没懂
     # Remove errors for time steps when transition to new channel (as this will be impossible for model to predict)
     if dataset.upper() not in ['SMAP', 'MSL']:
         return scores
 
     adjusted_scores = scores.copy()
     if is_train:
-        md = pd.read_csv(f'./datasets/data/{dataset.lower()}_train_md.csv')
+        md = pd.read_csv(f'data/SMAP/{dataset.lower()}_train_md.csv')
     else:
-        md = pd.read_csv('./datasets/data/labeled_anomalies.csv')
+        md = pd.read_csv('data/SMAP/labeled_anomalies.csv')
         md = md[md['spacecraft'] == dataset.upper()]
 
     md = md[md['chan_id'] != 'P-2']
