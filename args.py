@@ -17,7 +17,7 @@ def get_parser():
 
     # -- Data params ---
     parser.add_argument("--dataset", type=str.upper, default="SMD")
-    parser.add_argument("--group", type=str, default="1-1", help="Required for SMD dataset. <group_index>-<index>")
+    parser.add_argument("--group", type=str, default="1-8", help="Required for SMD dataset. <group_index>-<index>")
     parser.add_argument("--lookback", type=int, default=100)
     parser.add_argument("--normalize", type=str2bool, default=True)
     parser.add_argument("--spec_res", type=str2bool, default=False)
@@ -42,14 +42,14 @@ def get_parser():
     parser.add_argument("--alpha", type=float, default=0.2)
 
     # --- Train params ---
-    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--val_split", type=float, default=0.1)
     parser.add_argument("--bs", type=int, default=256)
     parser.add_argument("--init_lr", type=float, default=1e-3)
     parser.add_argument("--shuffle_dataset", type=str2bool, default=True)
     parser.add_argument("--dropout", type=float, default=0.3)
     parser.add_argument("--use_cuda", type=str2bool, default=True)
-    parser.add_argument("--cuda_device", type=str, default="1")
+    parser.add_argument("--cuda_device", type=str, default="3")
     parser.add_argument("--print_every", type=int, default=1)
     parser.add_argument("--log_tensorboard", type=str2bool, default=True)
 
@@ -63,5 +63,13 @@ def get_parser():
 
     # --- Other ---
     parser.add_argument("--comment", type=str, default="")
+
+    # --- meta ---
+    parser.add_argument('--n_way', type=int, help='n way', default=5)
+    parser.add_argument('--k_spt', type=int, help='k shot for support set', default=5)
+    parser.add_argument('--k_qry', type=int, help='k shot for query set', default=15)
+    parser.add_argument('--task_num', type=int, help='meta batch size, namely task num', default=32)
+    parser.add_argument('--seed', type=int, help='random seed', default=1)
+    parser.add_argument('--n_features', type=int, help='n_features', default=25)
 
     return parser

@@ -3,6 +3,7 @@ import pickle
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import random
 import torch
 import json
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
@@ -98,7 +99,8 @@ def get_data_from_source(args, normalize=False):
     print("train set shape: ", train_data.shape)
     print("test set shape: ", test_data.shape)
     print("test set label shape: ", None if test_label is None else test_label.shape)
-    return (train_data, None), (test_data, test_label)
+    train_label = np.zeros(len(train_data))
+    return (train_data, train_label), (test_data, test_label)
 
 
 # def get_data(dataset, max_train_size=None, max_test_size=None,normalize=False, spec_res=False, train_start=0, test_start=0):
@@ -305,3 +307,153 @@ def adjust_anomaly_scores(scores, dataset, is_train, lookback):
         adjusted_scores[c_start: c_end+1] = e_s
 
     return adjusted_scores
+
+
+def get_f1(file_name):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary["bf_result"]["f1"]
+    return f1
+
+
+def get_f1_for_omni(file_name):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary["best-f1"]
+    return f1
+
+
+def get_precision(file_name):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary["bf_result"]["precision"]
+    return f1
+
+
+def get_recall(file_name):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary["bf_result"]["recall"]
+    return f1
+
+
+def list2bin(l,max_dim):
+    bin = []
+    for i in range(max_dim):
+        if i in l:
+            bin.append("1")
+        else:
+            bin.append("0")
+    return "".join(bin)
+
+
+def bool_list2bin(l):
+    bin = []
+    for i in l:
+        if i:
+            bin.append("1")
+        else:
+            bin.append("0")
+    return "".join(bin)
+
+
+def bin2list(bin):
+    l = []
+    for i in range(len(bin)):
+        if bin[i] == "1":
+            l.append(i)
+    return l
+
+
+def filter_input(select, x_train):
+    temp_x_train = []
+    for i in range(len(select)):
+        xi = x_train[:, select[i]].reshape(-1, 1)
+        if i == 0:
+            temp_x_train = xi
+        else:
+            temp_x_train = np.concatenate((temp_x_train, xi), axis=1)
+    return temp_x_train
+
+
+def filter_train_test_set(args, select, x_train,x_test):
+    temp_x_train = filter_input(select,x_train)
+    temp_x_test = filter_input(select, x_test)
+    if args.normalize:
+        temp_x_train, scaler = normalize_data(temp_x_train, scaler=None)
+        temp_x_test, _ = normalize_data(temp_x_test, scaler=scaler)
+    return temp_x_train,temp_x_test
+
+
+def filter_input_by_bool(select, x_train):
+    temp_x_train = []
+    first = 0
+    for i in range(len(select)):
+        xi = x_train[:,i].reshape(-1, 1)
+        if select[i]:
+            if first == 0:
+                temp_x_train = xi
+                first = 1
+            else:
+                temp_x_train = np.concatenate((temp_x_train, xi), axis=1)
+    return temp_x_train
+
+
+def sample_input_by_bool(select, x_train):
+    temp_x_train = []
+    first = 0
+    for i in range(len(select)):
+        xi = x_train[:,i].reshape(-1, 1)
+        if select[i]:
+            if first == 0:
+                temp_x_train = xi
+                first = 1
+            else:
+                temp_x_train = np.concatenate((temp_x_train, xi), axis=1)
+        else:
+            if first == 0:
+                temp_x_train = np.zeros_like(xi)
+                first = 1
+            else:
+                temp_x_train = np.concatenate((temp_x_train, np.zeros_like(xi)), axis=1)
+    return temp_x_train
+
+
+def split_val_set(x_test,y_test,val_ratio=0.05):
+    dataset_len = int(len(x_test))
+    val_use_len = int(dataset_len * val_ratio)
+    index_list = []
+    lens_list = []
+    find = 0
+    count = 0
+    for i in range(len(y_test)):
+        if int(y_test[i]) == 1:
+            index_list.append(i)
+            find = 1
+            count += 1
+        elif find == 1:
+            find = 0
+            lens_list.append(count)
+            count = 0
+    index = random.choice(index_list)
+    # index = 0
+    # i = np.argmax(lens_list)
+    # index = index_list[i]
+    start = 0
+    end = 0
+    if index < val_use_len/2:
+        start = 0
+        end = val_use_len
+    elif dataset_len - index < val_use_len/2:
+        start = dataset_len - val_use_len
+        end = dataset_len
+    else:
+        start = index - val_use_len/2
+        end = index + val_use_len/2
+    start = int(start)
+    end = int(end)
+    x_val = x_test[start:end]
+    y_val = y_test[start:end]
+    new_x_test = np.concatenate((x_test[:start],x_test[end:]))
+    new_y_test = np.concatenate((y_test[:start],y_test[end:]))
+    return x_val,y_val,new_x_test,new_y_test

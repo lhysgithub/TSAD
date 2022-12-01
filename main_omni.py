@@ -7,6 +7,7 @@ import time
 import warnings
 from argparse import ArgumentParser
 from pprint import pformat, pprint
+import json
 
 import numpy as np
 import tensorflow as tf
@@ -25,7 +26,8 @@ class ExpConfig(Config):
     # dataset configuration
     # dataset = "machine-1-2"
     dataset = "SMAP"
-    group = "T-13"
+    group = "A-1"
+    cuda_device = "0"
     x_dim = get_data_dim(dataset)
 
     # model architecture configuration
@@ -94,9 +96,6 @@ def main():
     )
 
     # prepare the data
-    # (x_train, _), (x_test, y_test) = \
-    #     get_data(config.dataset, config.max_train_size, config.max_test_size, train_start=config.train_start,
-    #              test_start=config.test_start)
     (x_train, _), (x_test, y_test) = \
         get_data_from_source(config,True)
 
@@ -200,6 +199,12 @@ def main():
             print('=' * 30 + 'result' + '=' * 30)
             pprint(best_valid_metrics)
 
+            args_path = f"{config.save_path}/config.txt"
+            with open(args_path, "w") as f:
+                json.dump(config.__dict__, f, indent=2)
+            summary_path = f"{config.save_path}/summary.txt"
+            with open(summary_path, "w") as f:
+                json.dump(best_valid_metrics, f, indent=2)
 
 if __name__ == '__main__':
     # get config obj
@@ -208,8 +213,16 @@ if __name__ == '__main__':
     # parse the arguments
     arg_parser = ArgumentParser()
     register_config_arguments(config, arg_parser)
-    arg_parser.parse_args(sys.argv[1:])
+    arg_parser.parse_args(sys.argv[3:])
     config.x_dim = get_data_dim(config.dataset)
+    os.environ['CUDA_VISIBLE_DEVICES'] = config.cuda_device
+    config.save_path = f"output/{config.dataset}/{config.group}/baseline_omni"
+    if not os.path.exists(config.save_path):
+        os.mkdir(config.save_path)
+    summary_path = f"{config.save_path}/summary.txt"
+    if os.path.exists(summary_path):
+        print(summary_path)
+        exit()
 
     print_with_title('Configurations', pformat(config.to_dict()), after='\n')
 

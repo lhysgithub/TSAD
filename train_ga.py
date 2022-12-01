@@ -1,15 +1,17 @@
 from train_max_selection import *
 import pygad
 
+os.environ['MKL_THREADING_LAYER'] = 'GNU'
+os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 
-def train_and_compute_f1(args,x_val,y_val,x_train):
+def train_and_compute_f1(args, x_val, y_val, x_train):
     x_train = torch.from_numpy(x_train).float()
     x_val = torch.from_numpy(x_val).float()
     if args.dataset == 'SMD':
         output_path = f'output/SMD/{args.group}'
     else:
         output_path = f'output/{args.dataset}'
-    save_path = f"{output_path}/GA"
+    save_path = f"{output_path}/GA_rval"
     log_dir = f'{output_path}/logs'
     n_features = x_train.shape[1]
     args_summary = str(args.__dict__)
@@ -59,17 +61,49 @@ def train_and_compute_f1(args,x_val,y_val,x_train):
     train_loader, val_loader, test_loader = create_data_loaders(train_dataset, args.bs, args.val_split,
                                                                 args.shuffle_dataset, test_dataset=test_dataset)
     normal_loss = trainer.fit(train_loader, val_loader)
-    prediction_args = {'dataset': args.dataset, "target_dims": target_dims, 'scale_scores': args.scale_scores,
-                       'dynamic_pot': args.dynamic_pot, "use_mov_av": args.use_mov_av, "gamma": args.gamma}
+
+    # Some suggestions for POT args
+    level_q_dict = {
+        "SMAP": (0.90, 0.005),
+        "MSL": (0.90, 0.001),
+        "SMD-1": (0.9950, 0.001),
+        "SMD-2": (0.9925, 0.001),
+        "SMD-3": (0.9999, 0.001)
+    }
+    key = "SMD-" + args.group[0] if args.dataset == "SMD" else args.dataset
+    level, q = level_q_dict[key]
+    if args.level is not None:
+        level = args.level
+    if args.q is not None:
+        q = args.q
+
+    # Some suggestions for Epsilon args
+    reg_level_dict = {"SMAP": 0, "MSL": 0, "SMD-1": 1, "SMD-2": 1, "SMD-3": 1}
+    key = "SMD-" + args.group[0] if args.dataset == "SMD" else args.dataset
+    reg_level = reg_level_dict[key]
+
+    prediction_args = {
+        'dataset': args.dataset,
+        "target_dims": target_dims,
+        'scale_scores': args.scale_scores,
+        "level": level,
+        "q": q,
+        'dynamic_pot': args.dynamic_pot,
+        "use_mov_av": args.use_mov_av,
+        "gamma": args.gamma,
+        "reg_level": reg_level,
+        "save_path": save_path,
+    }
     predictor = Predictor(trainer.model, args.lookback, n_features, prediction_args)
 
     label = y_val[args.lookback:] if y_val is not None else None
     f1 = predictor.predict_anomalies(x_train, x_val, label)
-    return f1,normal_loss,trainer.model
+    return f1, normal_loss, trainer.model
 
 
 class GA_Input:
-    def __init__(self,args=None,x_val=None,y_val=None,x_train=None,x_test=None,best_select=None,best_fitness=-1,best_fitness_f1=0,best_model=None):
+    def __init__(self, args=None, x_val=None, y_val=None, x_train=None, x_test=None, best_select=None, best_fitness=-1,
+                 best_fitness_f1=0, best_model=None, generation=0):
         self.args = args
         self.x_val = x_val
         self.y_val = y_val
@@ -79,6 +113,9 @@ class GA_Input:
         self.best_fitness = best_fitness
         self.best_fitness_f1 = best_fitness_f1
         self.best_model = best_model
+        self.generation = generation
+
+
 ga_input = GA_Input()
 
 
@@ -87,13 +124,15 @@ def fitness_func(solution, solution_idx):
     # The fitness function calulates the sum of products between each input and its corresponding weight.
     global ga_input
     select = solution.tolist()
-    x_train = filter_input_by_bool(select,ga_input.x_train)
+    x_train = filter_input_by_bool(select, ga_input.x_train)
     x_test = filter_input_by_bool(select, ga_input.x_test)
     x_val = filter_input_by_bool(select, ga_input.x_val)
-    f1,normal_loss,model = train_and_compute_f1(ga_input.args,x_val,ga_input.y_val,x_train)
+    f1, normal_loss, model = train_and_compute_f1(ga_input.args, x_val, ga_input.y_val, x_train)
     # fitness = 1.0 / (np.abs(f1 - 1)+ 0.000001)
     # fitness = f1 - np.sum(solution) / len(solution)
     # fitness = f1
+    if f1 != f1 or f1 == None:
+        f1 = 0
     if normal_loss != normal_loss:
         fitness = - 10000
     else:
@@ -105,32 +144,49 @@ def fitness_func(solution, solution_idx):
         ga_input.best_fitness = fitness
         ga_input.best_fitness_f1 = f1
         ga_input.best_model = model
-    print(f"solution_idx: {solution_idx} solution: {solution.tolist()} selected dims: {np.sum(select)} fitness: {fitness}")
+    print(
+        f"solution_idx: {solution_idx} solution: {solution.tolist()} selected dims: {np.sum(select)} fitness: {fitness}")
     return fitness
 
 
 def callback_generation(ga_instance):
-    print(f"Generation: {ga_instance.generations_completed} Best Solution: {ga_input.best_select} Best Fitness: {ga_input.best_fitness} Selected dims: {np.sum(ga_input.best_select)} f1: {ga_input.best_fitness_f1}")
+    global ga_input
+    ga_input.generation += 1
+    print(
+        f"Generation: {ga_instance.generations_completed} Best Solution: {ga_input.best_select} Best Fitness: {ga_input.best_fitness} Selected dims: {np.sum(ga_input.best_select)} f1: {ga_input.best_fitness_f1}")
 
 
-def ga_selection(args,x_val,y_val,x_train,x_test):
+def mutation_func(ga_instance,offspring):
+    global ga_input
+    for chromosome_idx in range(offspring.shape[0]):
+        offspring[chromosome_idx, ga_input.generation] = random.choice(ga_instance.gene_space)
+        # temp = ga_instance.gene_space
+        # temp2 = [offspring[chromosome_idx, ga_input.generation]]
+        # temp3 = [x for x in temp if x not in temp2]
+        # offspring[chromosome_idx, ga_input.generation] = random.choice(temp3)
+        # random_gene_idx = np.random.choice(range(offspring.shape[1]))
+        # offspring[chromosome_idx, random_gene_idx] += np.random.choice(ga_instance.gene_space)
+    return offspring
+
+
+def ga_selection(args, x_val, y_val, x_train, x_test):
     feature_numbers = x_train.shape[1]
     global ga_input
-    ga_input = GA_Input(args,x_val,y_val,x_train,x_test)
-    ga_instance = pygad.GA(num_generations=3,
+    ga_input = GA_Input(args, x_val, y_val, x_train, x_test)
+    ga_instance = pygad.GA(num_generations=feature_numbers,
                            num_parents_mating=2,
                            fitness_func=fitness_func,
-                           sol_per_pop=5,
+                           sol_per_pop=4,
                            num_genes=feature_numbers,
                            on_generation=callback_generation,
                            parent_selection_type="rank",
                            crossover_type="two_points",
-                           mutation_type="random",
+                           # mutation_type="random",
                            # on_parents=pygad.GA.rank_selection,
                            # on_crossover=pygad.GA.two_points_crossover,
-                           # on_mutation=pygad.GA.random_mutation,
-                           mutation_percent_genes=0.1,
-                           gene_space=[0,1],
+                           on_mutation=mutation_func,
+                           # mutation_percent_genes=0.1,
+                           gene_space=[0, 1],
                            save_solutions=True)
     ga_instance.run()
     # ga_instance.plot_fitness()
@@ -145,7 +201,7 @@ def ga_selection(args,x_val,y_val,x_train,x_test):
     x_train = filter_input_by_bool(select, ga_input.x_train)
     x_test = filter_input_by_bool(select, ga_input.x_test)
     x_val = filter_input_by_bool(select, ga_input.x_val)
-    return x_train,x_test,select
+    return x_train, x_test, select
 
 
 def main():
@@ -182,7 +238,7 @@ def main():
         (x_train, _), (x_test, y_test) = get_data_from_source(args, normalize=normalize)
     else:
         raise Exception(f'Dataset "{dataset}" not available.')
-    # args.feature_numbers = x_train.shape[1]
+    args.feature_numbers = x_train.shape[1]
 
     log_dir = f'{output_path}/logs'
     if not os.path.exists(output_path):
@@ -190,8 +246,8 @@ def main():
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
-    x_val,y_val,x_test,y_test = split_val_set(x_test,y_test,args.val_split)
-    x_train,x_test,selected = ga_selection(args,x_val,y_val,x_train,x_test)
+    x_val, y_val, x_test, y_test = split_val_set(x_test, y_test, args.val_split)
+    x_train, x_test, selected = ga_selection(args, x_val, y_val, x_train, x_test)
     args.select = selected
     save_path = f"{output_path}/GA"
     x_train = torch.from_numpy(x_train).float()
@@ -302,9 +358,11 @@ def main():
     with open(args_path, "w") as f:
         json.dump(args.__dict__, f, indent=2)
 
-    file_name = save_path+"/"+"summary.txt"
+    file_name = save_path + "/" + "summary.txt"
     return get_f1(file_name)
 
 
 if __name__ == '__main__':
+    random.seed(0)
+    np.random.seed(0)
     main()

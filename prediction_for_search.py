@@ -199,3 +199,4 @@ class Predictor:
             test_pred_df.to_pickle(f"{self.save_path}/test_output.pkl")
 
         print("-- Done.")
+        return bf_eval["f1"]

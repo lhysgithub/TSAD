@@ -8,6 +8,7 @@ bash_scripts/
 data/
 output/
 licences/
+analysis/
 
 # C extensions
 *.so

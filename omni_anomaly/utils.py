@@ -30,9 +30,11 @@ def save_z(z, filename='z'):
 
 def get_data_dim(dataset):
     if dataset == 'SMAP':
-        return 55
+        return 25
     elif dataset == 'MSL':
         return 55
+    elif dataset == 'SMD':
+        return 38
     elif str(dataset).startswith('machine'):
         return 38
     else:
@@ -104,6 +106,19 @@ def get_dataset_np(config):
         test_labels = np.genfromtxt(f'./data/SMD/test_label/machine-{variable}.txt', dtype=np.float32, delimiter=',')
         return train_df.to_numpy(), test_df.to_numpy(), test_labels
     elif "SMAP" in dataset:
+        variable = config.group
+        train = np.load(f'./data/SMAP/train/{variable}.npy')
+        test = np.load(f'./data/SMAP/test/{variable}.npy')
+        test_label = np.zeros(len(test))
+
+        # Set test anomaly labels from files
+        labels = pd.read_csv(f'./data/SMAP/labeled_anomalies.csv', sep=",", index_col="chan_id")
+        label_str = labels.loc[variable, "anomaly_sequences"]
+        label_list = json.loads(label_str)
+        for i in label_list:
+            test_label[i[0]:i[1]+1] = 1
+        return train, test, test_label
+    elif "MSL" in dataset:
         variable = config.group
         train = np.load(f'./data/SMAP/train/{variable}.npy')
         test = np.load(f'./data/SMAP/test/{variable}.npy')
