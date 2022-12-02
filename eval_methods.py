@@ -42,7 +42,7 @@ def adjust_predicts(score, label, threshold, pred=None, calc_latency=False):
                 if not actual[j]:
                     break
                 else:
-                    if not predict[j]:
+                    if not predict[j]: # todo check is it reasonable?
                         predict[j] = True
                         latency += 1
         elif not actual[i]:
@@ -123,7 +123,7 @@ def bf_search(score, label, start, end=None, step_num=1, display_freq=1, verbose
     Method from OmniAnomaly (https://github.com/NetManAIOps/OmniAnomaly)
     """
 
-    print(f"Finding best f1-score by searching for threshold..")
+    # print(f"Finding best f1-score by searching for threshold..")
     if step_num is None or end is None:
         end = start
         step_num = 1

@@ -46,9 +46,9 @@ def get_target_dims(dataset):
                      returns None if all input dimensions should be modeled
     """
     if dataset == "SMAP":
-        return [0]
+        return [0]  #None # [0]
     elif dataset == "MSL":
-        return [0]
+        return [0]  #None # [0]
     elif dataset == "SMD":
         return None
     else:
@@ -60,7 +60,7 @@ def get_dataset_np(config):
         variable = config.group
         train_df = pd.read_csv(f'./data/WT/{variable}/train_orig.csv', sep=",", header=None, dtype=np.float32).dropna(axis=0)
         test_df = pd.read_csv(f'./data/WT/{variable}/test_orig.csv', sep=",", header=None, dtype=np.float32).dropna(axis=0)
-        train_df["y"] = np.zeros(train_df.shape[0])
+        train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
 
         # Get test anomaly labels
         test_df.rename(columns={10:'y'}, inplace=True)
@@ -79,14 +79,14 @@ def get_dataset_np(config):
         variable = config.group
         train = np.load(f'./data/SMAP/train/{variable}.npy')
         test = np.load(f'./data/SMAP/test/{variable}.npy')
-        test_label = np.zeros(len(test))
+        test_label = np.zeros(len(test), dtype=np.float32)
 
         # Set test anomaly labels from files
         labels = pd.read_csv(f'./data/SMAP/labeled_anomalies.csv', sep=",", index_col="chan_id")
         label_str = labels.loc[variable, "anomaly_sequences"]
         label_list = json.loads(label_str)
         for i in label_list:
-            test_label[i[0]:i[1]+1] = 1
+            test_label[i[0]:i[1]+1] = 1.0
         return train, test, test_label
 
 
