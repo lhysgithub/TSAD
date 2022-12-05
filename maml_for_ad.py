@@ -82,6 +82,7 @@ def main():
         out_dim = len(target_dims)
     args.target_dims = target_dims
     args.out_dim = out_dim
+    print(args)
     db = TimeSeriesDatabase(args)
     net = MTAD_GAT(n_features=args.n_features,
                    window_size=args.lookback,
@@ -99,18 +100,24 @@ def main():
                    dropout=args.dropout,
                    alpha=args.alpha).to(device)
 
-    save_path = f"output/{args.dataset}/{args.group}/maml"
+    save_path = f"output/{args.dataset}/{args.group}/maml_sup_test"
     if not os.path.exists(save_path):
         os.makedirs(save_path)
+    # meta_opt = optim.SGD(net.parameters(), lr=1e-3, momentum=0.9)# momentum=0.9, #, weight_decay=1e-2
     meta_opt = optim.Adam(net.parameters(), lr=1e-3)
     with torch.backends.cudnn.flags(enabled=False):
         log = []
-        for epoch in range(5):
+        for epoch in range(20):
             # train(args,db, net, device, meta_opt, epoch, log)
-            test(args,db, net, device, meta_opt, epoch, log)
+            # test(args,db, net, device, meta_opt, epoch, log)
+            test_for_un_sup(args, db, net, device, meta_opt, epoch, log)
             # plot(log)
             with open(f"{save_path}/summary.txt", "w") as f:
-                json.dump(log[-1], f, indent=2)
+                bestId = 0
+                for i in range(len(log)):
+                    if log[i]["f1"] > log[bestId]["f1"]:
+                        bestId = i
+                json.dump(log[bestId], f, indent=2)
 
 
 def train(args,db, net, device, meta_opt, epoch, log):
@@ -230,6 +237,7 @@ def test(args,db, net, device, meta_opt, epoch, log):
             inner_gt = []
             inter_gt = []
             qry_losses = []
+            net.train()
             for x, z, y in qry_loader:
                 x = x.to(device)
                 y = y.to(device)
@@ -249,11 +257,11 @@ def test(args,db, net, device, meta_opt, epoch, log):
 
                 qry_loss = (recon - z_hat) ** 2 + (pre - z_hat) ** 2
                 qry_loss = torch.sigmoid(qry_loss.max(dim=1)[0])
-                qry_loss = F.mse_loss(qry_loss, y_hat)
+                qry_loss = F.cross_entropy(qry_loss, y_hat)
                 qry_loss.backward()
-                meta_opt.step() # todo check is it work
+                # meta_opt.step() # todo check is it work
                 qry_losses.append(qry_loss.item())
-            # meta_opt.step()  # todo check is it work
+            meta_opt.step()  # todo check is it work
 
             pres = np.concatenate(pres, axis=0)
             recons = np.concatenate(recons, axis=0)
@@ -284,112 +292,191 @@ def test(args,db, net, device, meta_opt, epoch, log):
             })
 
 
-            # anomaly_predictions = []
-            # ground_truths = []
-            # anomaly_scores = []
-            # with torch.no_grad():
-            #     for j in range(qry_inner_batches):
-            #         x = torch.from_numpy(x_qry[i][j]).to(device)
-            #         y = torch.from_numpy(y_qry[i][j]).to(device)
-            #         z = torch.from_numpy(z_qry[i][j]).to(device)
-            #         x_hat = torch.cat((x[:,1:,:],z),dim=1)
-            #         pre_logits, _ = net(x)
-            #         _ , qry_logits = net(x_hat)
-            #         window_rescon = qry_logits[:, -1, :].detach().cpu().numpy()
-            #         window_prediction = pre_logits
-            #
-            #         qry_mse_loss = F.mse_loss(qry_logits, x_hat)
-            #         qry_mes = torch.sqrt(torch.pow(qry_logits - x_hat, 2.0))
-            #         qry_mes = torch.mean(qry_mes, dim=2)
-            #         # qry_mes, _ = torch.max(qry_mes, dim=2)
-            #         qry_mes = qry_mes + torch.sqrt(torch.pow(pre_logits - z,2.0))
-            #         isNan = qry_mes[0][0].item()
-            #         if isNan != isNan:
-            #             continue
-            #         anomaly_scores.append(qry_mes.detach().cpu().numpy())
-            #         qry_mes = torch.sigmoid(qry_mes)
-            #         qry_loss = F.mse_loss(qry_mes, y) + qry_mse_loss
-            #         qry_acc = (qry_mes * y).sum().item() / qry_inner_batches
-            #
-            #         length = int(qry_mes.shape[1] * 0.10)
-            #         vals, indices = qry_mes.topk(k=length, dim=1, sorted=True)
-            #         kth_vals_column = vals[:, -1].reshape(-1, 1)
-            #         kth_vals = kth_vals_column.repeat(1, qry_mes.shape[1])
-            #         anomaly_prediction = torch.where(qry_mes > kth_vals, torch.ones_like(qry_mes),
-            #                                          torch.zeros_like(qry_mes))
-            #         anomaly_prediction_np = anomaly_prediction.detach().cpu().numpy()
-            #         ground_truth = y.detach().cpu().numpy()
-            #         anomaly_predictions.append(anomaly_prediction_np)
-            #         ground_truths.append(ground_truth)
-            #
-            # anomaly_scores = np.concatenate(anomaly_scores).flatten()
-            # ground_truths = np.concatenate(ground_truths).flatten()
-            # anomaly_predictions = np.concatenate(anomaly_predictions).flatten()
-            # pre = precision_score(ground_truths, anomaly_predictions)
-            # rec = recall_score(ground_truths, anomaly_predictions)
-            # f1 = f1_score(ground_truths, anomaly_predictions)
-            # C = confusion_matrix(ground_truths, anomaly_predictions)
+def test_for_sup(args,db, net, device, meta_opt, epoch, log):
+    net.train()
+    n_test_iter = 1
+    for batch_idx in range(n_test_iter):
+        spt_loader, qry_loader = db.next('test')
+        meta_opt.zero_grad()
+        train_losses = [0]
+        pres = []
+        recons = []
+        inner_gt = []
+        inter_gt = []
+        qry_losses = []
+        recon_pre_losses = [0]
+        net.train()
+        for x, z, y in qry_loader:
+            x = x.to(device)
+            y = y.to(device)
+            z = z.to(device)
+            # meta_opt.zero_grad()  # todo test is it work？
+            x_hat = torch.cat((x[:, 1:, :], z), dim=1)
+            pre_logits, _ = net(x)
+            _, qry_logits = net(x_hat)
+            recon = qry_logits[:, -1, :]
+            pre = pre_logits
+            recons.append(recon.detach().cpu().numpy())
+            pres.append(pre.detach().cpu().numpy())
+            z_hat = z.squeeze(dim=1)
+            y_hat = y.squeeze(dim=1)
+            if args.target_dims != None:
+                z_hat = z_hat[:,args.target_dims]
+            inner_gt.append(z_hat.detach().cpu().numpy())
+            inter_gt.append(y_hat.detach().cpu().numpy())
+
+            qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
+            # qry_loss = qry_loss.max(dim=1)[0]
+            qry_loss = qry_loss.mean(dim=1)
+            recon_pre_loss = torch.sqrt(F.mse_loss(recon, z_hat)) + torch.sqrt(F.mse_loss(pre, z_hat))
+            recon_pre_losses.append(recon_pre_loss.item())
+            qry_loss = F.mse_loss(qry_loss, y_hat*2) #+ 10*recon_pre_loss
+            qry_loss.backward()
+            # meta_opt.step()  # todo check is it work
+            qry_losses.append(qry_loss.item())
+        meta_opt.step()  # todo check is it work
+
+        pres = np.concatenate(pres, axis=0)
+        recons = np.concatenate(recons, axis=0)
+        inner_gt = np.concatenate(inner_gt, axis=0)
+        inter_gt = np.concatenate(inter_gt, axis=0)
+        anomaly_scores = np.zeros_like(inner_gt)
+        for i in range(pres.shape[1]):
+            a_score = np.sqrt((pres[:, i] - inner_gt[:, i]) ** 2) + np.sqrt((recons[:, i] - inner_gt[:, i]) ** 2)
+            anomaly_scores[:, i] = a_score
+        anomaly_scores = np.mean(anomaly_scores, axis=1) # 此处使用的是mean，那么前边的损失也需要使用mean！
+        # anomaly_scores = np.max(anomaly_scores, axis=1)
+        bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=2, step_num=100, verbose=False)
+        train_mean_loss = np.array(train_losses).mean()
+        test_mean_loss = np.array(qry_losses).mean()
+        test_recon_pre_loss = np.array(recon_pre_losses).mean()
+        # iter_time = time.time() - start_time
+        if batch_idx % 1 == 0:
+            print(
+                f'[Test Epoch {epoch + 1:.2f}] | Train loss: {train_mean_loss:.2f} | '
+                f'Test Loss: {test_mean_loss:.2f} | test_recon_pre_loss: {test_recon_pre_loss:.2f} | '
+                f'best F1: {bf_eval["f1"]:.2f} | precision: '
+                f'{bf_eval["precision"]:.2f} | Recall: {bf_eval["recall"]:.2f}')
+        log.append({
+            'epoch': epoch + 1,
+            'loss': test_mean_loss,
+            'precision': bf_eval["precision"],
+            'recall': bf_eval["recall"],
+            'f1': bf_eval["f1"],
+            'mode': 'train',
+            'time': time.time(),
+        })
 
 
+def test_for_un_sup(args,db, net, device, meta_opt, epoch, log):
+    net.train()
+    n_test_iter = 1
+    for batch_idx in range(n_test_iter):
+        spt_loader, qry_loader = db.next('test')
+        meta_opt.zero_grad()
+        train_losses = [0]
+        # for x, z, y in spt_loader:
+        #     x = x.to(device)
+        #     y = y.to(device)
+        #     z = z.to(device)
+        #     meta_opt.zero_grad()
+        #     preds, spt_logits = net(x)
+        #     # sync
+        #     # x_hat = torch.cat((x[:, 1:, :], z), dim=1)
+        #     # _, spt_logits = net(x_hat)
+        #     # spt_logits = spt_logits[:, -1, :]
+        #     #
+        #     if args.target_dims is not None:
+        #         x = x[:, :, args.target_dims]
+        #         z = z[:, :, args.target_dims].squeeze(-1)
+        #     if preds.ndim == 3:
+        #         preds = preds.squeeze(1)
+        #     if z.ndim == 3:
+        #         z = z.squeeze(1)
+        #     # sync
+        #     # y_hat = y.squeeze(dim=1)
+        #     # spt2_loss = torch.sqrt((spt_logits-z)**2) + torch.sqrt((preds-z)**2)
+        #     # spt2_loss = spt2_loss.mean(dim=1)
+        #     # spt2_loss = F.mse_loss(spt2_loss, y_hat * 2)
+        #     # spt2_loss.backward()
+        #     # sync end
+        #     spt_loss = torch.sqrt(F.mse_loss(spt_logits, x)) + torch.sqrt(F.mse_loss(preds, z))
+        #     spt_loss.backward()
+        #     meta_opt.step()
+        #     train_losses.append(spt_loss.item())
 
-            # with higher.innerloop_ctx(net, inner_opt, track_higher_grads=False) as (fnet, diffopt):
-            #     for i in range(task_num):
-            #         for j in range(setsz):
-            #             _, spt_logits = fnet(x_spt[i])
-            #             spt_loss = F.mse_loss(spt_logits, x_spt[i])
-            #             diffopt.step(spt_loss)
-            #
-            #         net.eval()
-            #         anomaly_predictions = []
-            #         ground_truths = []
-            #         with torch.no_grad():
-            #             for j in range(querysz):
-            #                 _, qry_logits = fnet(x_qry[i])
-            #                 qry_mse_loss = F.mse_loss(qry_logits, x_qry[i])
-            #                 qry_mes = torch.sqrt(torch.pow(qry_logits - x_qry[i], 2.0))
-            #                 qry_mes, _ = torch.max(qry_mes, dim=2)
-            #                 isNan = qry_mes[0][0].item()
-            #                 if isNan != isNan:
-            #                     continue
-            #                 qry_mes = torch.sigmoid(qry_mes)
-            #                 qry_loss = F.mse_loss(qry_mes, y_qry[i]) + qry_mse_loss
-            #                 qry_acc = (qry_mes * y_qry[i]).sum().item() / querysz
-            #
-            #                 length = int(qry_mes.shape[1] * 0.1)
-            #                 vals, indices = qry_mes.topk(k=length, dim=1, sorted=True)
-            #                 kth_vals_column = vals[:, -1].reshape(-1, 1)
-            #                 kth_vals = kth_vals_column.repeat(1, qry_mes.shape[1])
-            #                 anomaly_prediction = torch.where(qry_mes > kth_vals, torch.ones_like(qry_mes),
-            #                                                  torch.zeros_like(qry_mes))
-            #                 anomaly_prediction_np = anomaly_prediction.detach().cpu().numpy()
-            #                 ground_truth = y_qry[i].detach().cpu().numpy()
-            #                 anomaly_predictions.append(anomaly_prediction_np)
-            #                 ground_truths.append(ground_truth)
-            #
-            #         ground_truths = np.concatenate(ground_truths)
-            #         ground_truths = ground_truths.flatten()
-            #         anomaly_predictions = np.concatenate(anomaly_predictions).flatten()
-            #         pre = precision_score(ground_truths, anomaly_predictions)
-            #         rec = recall_score(ground_truths, anomaly_predictions)
-            #         f1 = f1_score(ground_truths, anomaly_predictions)
-            #         C = confusion_matrix(ground_truths, anomaly_predictions)
-            #         if batch_idx % 1 == 0:
-            #             print(f'[Epoch {epoch + 1:.2f}] Test Loss: {qry_loss:.2f} | F1: {f1:.2f} | Acc: {qry_acc:.2f}')
-            #         log.append({
-            #             'epoch': epoch + 1,
-            #             'loss': qry_loss,
-            #             'acc': qry_acc,
-            #             'precision': pre,
-            #             'recall': rec,
-            #             'f1': f1,
-            #             "TP": C[1, 1],
-            #             "TN": C[0, 0],
-            #             "FP": C[0, 1],
-            #             "FN": C[1, 0],
-            #             'mode': 'train',
-            #             'time': time.time(),
-            #         })
+        pres = []
+        recons = []
+        inner_gt = []
+        inter_gt = []
+        qry_losses = []
+        recon_pre_losses = []
+        net.train()
+        # net.eval()
+        # meta_opt.zero_grad()
+        for x, z, y in qry_loader:
+            x = x.to(device)
+            y = y.to(device)
+            z = z.to(device)
+            meta_opt.zero_grad()  # todo test is it work？
+            x_hat = torch.cat((x[:, 1:, :], z), dim=1)
+            pre_logits, original_recon = net(x)
+            _, qry_logits = net(x_hat)
+            recon = qry_logits[:, -1, :]
+            pre = pre_logits
+            recons.append(recon.detach().cpu().numpy())
+            pres.append(pre.detach().cpu().numpy())
+            z_hat = z.squeeze(dim=1)
+            y_hat = y.squeeze(dim=1)
+            if args.target_dims != None:
+                z_hat = z_hat[:,args.target_dims]
+            inner_gt.append(z_hat.detach().cpu().numpy())
+            inter_gt.append(y_hat.detach().cpu().numpy())
 
+            qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
+            # qry_loss = qry_loss.max(dim=1)[0]
+            qry_loss = qry_loss.mean(dim=1)
+            qry_loss = F.mse_loss(qry_loss, y_hat * 2)
+            # y_bar = y.repeat(1, qry_loss.shape[1])
+            # qry_loss = F.mse_loss(qry_loss, y_bar*2)
+            recon_pre_loss = torch.sqrt(F.mse_loss(original_recon, x)) + torch.sqrt(F.mse_loss(pre, z_hat))
+            recon_pre_losses.append(recon_pre_loss.item())
+             #+ recon_pre_loss  # + torch.mean(qry_loss)
+            qry_loss.backward()
+            meta_opt.step()  # todo check is it work
+            qry_losses.append(qry_loss.item())
+        # meta_opt.step()  # todo check is it work
+
+        pres = np.concatenate(pres, axis=0)
+        recons = np.concatenate(recons, axis=0)
+        inner_gt = np.concatenate(inner_gt, axis=0)
+        inter_gt = np.concatenate(inter_gt, axis=0)
+        anomaly_scores = np.zeros_like(inner_gt)
+        for i in range(pres.shape[1]):
+            a_score = np.sqrt((pres[:, i] - inner_gt[:, i]) ** 2) + np.sqrt((recons[:, i] - inner_gt[:, i]) ** 2)
+            anomaly_scores[:, i] = a_score
+        anomaly_scores = np.mean(anomaly_scores, axis=1) # 此处使用的是mean，那么前边的损失也需要使用mean！
+        # anomaly_scores = np.max(anomaly_scores, axis=1)
+        bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=2, step_num=100, verbose=False)
+        train_mean_loss = np.array(train_losses).mean()
+        test_mean_loss = np.array(qry_losses).mean()
+        test_recon_pre_loss = np.array(recon_pre_losses).mean()
+        # iter_time = time.time() - start_time
+        if batch_idx % 1 == 0:
+            print(
+                f'[Test Epoch {epoch + 1:.2f}] | Train loss: {train_mean_loss:.2f} | '
+                f'Test Loss: {test_mean_loss:.2f} | Test_recon_pre_loss: {test_recon_pre_loss:.2f} | '
+                f'best F1: {bf_eval["f1"]:.2f} | precision: '
+                f'{bf_eval["precision"]:.2f} | Recall: {bf_eval["recall"]:.2f}')
+        log.append({
+            'epoch': epoch + 1,
+            'loss': test_mean_loss,
+            'precision': bf_eval["precision"],
+            'recall': bf_eval["recall"],
+            'f1': bf_eval["f1"],
+            'mode': 'train',
+            'time': time.time(),
+        })
 
 
 def plot(log):

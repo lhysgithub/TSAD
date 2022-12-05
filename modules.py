@@ -13,12 +13,13 @@ class ConvLayer(nn.Module):
         super(ConvLayer, self).__init__()
         self.padding = nn.ConstantPad1d((kernel_size - 1) // 2, 0.0)
         self.conv = nn.Conv1d(in_channels=n_features, out_channels=n_features, kernel_size=kernel_size)
+        self.bn = nn.BatchNorm1d(n_features)
         self.relu = nn.ReLU()
 
     def forward(self, x):
         x = x.permute(0, 2, 1)
         x = self.padding(x)
-        x = self.relu(self.conv(x))
+        x = self.relu(self.bn(self.conv(x)))
         return x.permute(0, 2, 1)  # Permute back
 
 
@@ -58,7 +59,7 @@ class FeatureAttentionLayer(nn.Module):
 
         if self.use_bias:
             self.bias = nn.Parameter(torch.empty(n_features, n_features))
-
+        self.bn = nn.BatchNorm1d(n_features)
         self.leakyrelu = nn.LeakyReLU(alpha)
         self.sigmoid = nn.Sigmoid()
 
@@ -90,7 +91,7 @@ class FeatureAttentionLayer(nn.Module):
         attention = torch.dropout(attention, self.dropout, train=self.training)
 
         # Computing new node features using the attention
-        h = self.sigmoid(torch.matmul(attention, x))
+        h = self.sigmoid(self.bn(torch.matmul(attention, x)))
 
         return h.permute(0, 2, 1)
 
@@ -159,7 +160,7 @@ class TemporalAttentionLayer(nn.Module):
 
         if self.use_bias:
             self.bias = nn.Parameter(torch.empty(window_size, window_size))
-
+        self.bn = nn.BatchNorm1d(window_size)
         self.leakyrelu = nn.LeakyReLU(alpha)
         self.sigmoid = nn.Sigmoid()
 
@@ -188,7 +189,7 @@ class TemporalAttentionLayer(nn.Module):
         attention = torch.softmax(e, dim=2)
         attention = torch.dropout(attention, self.dropout, train=self.training)
 
-        h = self.sigmoid(torch.matmul(attention, x))    # (b, n, k)
+        h = self.sigmoid(self.bn(torch.matmul(attention, x)))    # (b, n, k)
 
         return h
 
@@ -231,9 +232,12 @@ class GRULayer(nn.Module):
         self.n_layers = n_layers
         self.dropout = 0.0 if n_layers == 1 else dropout
         self.gru = nn.GRU(in_dim, hid_dim, num_layers=n_layers, batch_first=True, dropout=self.dropout)
+        self.ln = nn.LayerNorm(hid_dim)
 
     def forward(self, x):
         out, h = self.gru(x)
+        out = self.ln(out)
+        h = self.ln(h)
         out, h = out[-1, :, :], h[-1, :, :]  # Extracting from last layer
         return out, h
 
@@ -251,9 +255,11 @@ class RNNDecoder(nn.Module):
         self.in_dim = in_dim
         self.dropout = 0.0 if n_layers == 1 else dropout
         self.rnn = nn.GRU(in_dim, hid_dim, n_layers, batch_first=True, dropout=self.dropout)
+        self.ln = nn.LayerNorm(hid_dim)
 
     def forward(self, x):
         decoder_out, _ = self.rnn(x)
+        decoder_out = self.ln(decoder_out)
         return decoder_out
 
 
@@ -295,8 +301,10 @@ class Forecasting_Model(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, dropout):
         super(Forecasting_Model, self).__init__()
         layers = [nn.Linear(in_dim, hid_dim)]
+        # layers.append(nn.BatchNorm1d(hid_dim))
         for _ in range(n_layers - 1):
             layers.append(nn.Linear(hid_dim, hid_dim))
+            # layers.append(nn.BatchNorm1d(hid_dim))
 
         layers.append(nn.Linear(hid_dim, out_dim))
 

@@ -20,7 +20,7 @@ class TimeSeriesDatabase:
         # self.k_query = int(len(self.x_test) / self.args.lookback)
         # self.k_shot = 20
         # self.k_query = 20
-        self.iner_bs = 256
+        self.iner_bs = 128
         self.indexes = {"train": 0, "test": 0}
         self.datasets = {"train": train_set, "test": test_set}
         self.datasets_cache = {"train": self.load_data_cache(self.datasets["train"], mode='train'),
@@ -47,10 +47,11 @@ class TimeSeriesDatabase:
         dataset = SlidingWindowDataset(data_pack, labels, self.args.lookback, self.args.target_dims)
         indices = list(range(len(dataset)))
         sampler = SubsetRandomSampler(indices)
-        if shuffle:
-            return DataLoader(dataset, batch_size=self.iner_bs, sampler=sampler)
-        else:
-            return DataLoader(dataset, batch_size=self.iner_bs, shuffle=shuffle)
+        return DataLoader(dataset, batch_size=self.iner_bs, shuffle=shuffle)
+        # if shuffle:
+        #     return DataLoader(dataset, batch_size=self.iner_bs, sampler=sampler)
+        # else:
+        #     return DataLoader(dataset, batch_size=self.iner_bs, shuffle=shuffle)
 
     def next(self, mode='train'):
         # update cache if indexes is larger cached num
