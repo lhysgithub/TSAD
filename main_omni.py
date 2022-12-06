@@ -25,7 +25,7 @@ from omni_anomaly.utils import get_data_dim, get_data, save_z, get_data_from_sou
 class ExpConfig(Config):
     # dataset configuration
     # dataset = "machine-1-2"
-    dataset = "SMAP"
+    dataset = "MSL"
     group = "A-1"
     cuda_device = "0"
     x_dim = get_data_dim(dataset)

@@ -4,16 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.ticker import MultipleLocator
-from utils import get_recall, get_f1, get_precision, get_f1_for_omni
+from utils import *
 
-method_path = "baseline"
+method_path = "maml_val"
 
 # metric = "precision"
 metric = "f1"
 # metric = "recall"
+model = "gat" # omni
+
 
 dataset = "SMAP"
-model = "gat"
 end = ".npy"
 # dataset = "SMD"
 # end = ".txt"
@@ -36,11 +37,12 @@ def get_data():
     # for file_name in os.listdir(dir_path):
     #     if file_name.endswith(end):
     #         group = file_name.split(end)[0]
-            # group = group.split(prefix)[1] # for smd
+    #         group = group.split(prefix)[1] # for smd
+
             path = base_path + "/" + group
             file_name2 = path + f"/{method_path}/summary.txt"
             try:
-                f1 = get_f1(file_name2)
+                f1 = get_f1_for_maml(file_name2)
                 # recall = get_recall(file_name2)
                 # precision = get_precision(file_name2)
                 groups.append(group)

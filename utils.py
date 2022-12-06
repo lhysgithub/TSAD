@@ -88,6 +88,19 @@ def get_dataset_np(config):
         for i in label_list:
             test_label[i[0]:i[1]+1] = 1.0
         return train, test, test_label
+    elif "MSL" in dataset:
+        variable = config.group
+        train = np.load(f'./data/SMAP/train/{variable}.npy')
+        test = np.load(f'./data/SMAP/test/{variable}.npy')
+        test_label = np.zeros(len(test), dtype=np.float32)
+
+        # Set test anomaly labels from files
+        labels = pd.read_csv(f'./data/SMAP/labeled_anomalies.csv', sep=",", index_col="chan_id")
+        label_str = labels.loc[variable, "anomaly_sequences"]
+        label_list = json.loads(label_str)
+        for i in label_list:
+            test_label[i[0]:i[1]+1] = 1.0
+        return train, test, test_label
 
 
 def get_data_from_source(args, normalize=False):
@@ -313,6 +326,13 @@ def get_f1(file_name):
     with open(file_name) as f:
         summary = json.load(f)
         f1 = summary["bf_result"]["f1"]
+    return f1
+
+
+def get_f1_for_maml(file_name):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary["f1"]
     return f1
 
 

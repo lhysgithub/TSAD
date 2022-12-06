@@ -10,7 +10,7 @@ for file_name in os.listdir(dir_path):
     if file_name.endswith(end):
         group = file_name.split(end)[0]
         group = group.split(prefix)[1] # for smd
-        cmd = f"python maml_for_ad.py --dataset {dataset} --group {group} --cuda_device 3"
+        cmd = f"python maml_for_ad_upper.py --dataset {dataset} --group {group} --cuda_device 3"
         print(cmd)
         os.system(cmd)
 

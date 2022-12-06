@@ -16,8 +16,8 @@ def get_parser():
     parser = argparse.ArgumentParser()
 
     # -- Data params ---
-    parser.add_argument("--dataset", type=str.upper, default="SMD")
-    parser.add_argument("--group", type=str, default="1-5", help="Required for SMD dataset. <group_index>-<index>")
+    parser.add_argument("--dataset", type=str.upper, default="MSL")
+    parser.add_argument("--group", type=str, default="T-9", help="Required for SMD dataset. <group_index>-<index>")
     parser.add_argument('--n_features', type=int, help='n_features', default=38)
     parser.add_argument("--lookback", type=int, default=100)
     parser.add_argument("--normalize", type=str2bool, default=True)
@@ -50,7 +50,7 @@ def get_parser():
     parser.add_argument("--shuffle_dataset", type=str2bool, default=True)
     parser.add_argument("--dropout", type=float, default=0.3)
     parser.add_argument("--use_cuda", type=str2bool, default=True)
-    parser.add_argument("--cuda_device", type=str, default="0")
+    parser.add_argument("--cuda_device", type=str, default="2")
     parser.add_argument("--print_every", type=int, default=1)
     parser.add_argument("--log_tensorboard", type=str2bool, default=True)
 
@@ -71,6 +71,8 @@ def get_parser():
     parser.add_argument('--k_qry', type=int, help='k shot for query set', default=15)
     parser.add_argument('--task_num', type=int, help='meta batch size, namely task num', default=32)
     parser.add_argument('--seed', type=int, help='random seed', default=0)
+    parser.add_argument("--save_dir", type=str, default="temp")
+    parser.add_argument("--using_labeled_val", type=str2bool, default=True)
 
 
     return parser
