@@ -14,16 +14,59 @@ import pandas as pd
 #         print(cmd)
 #         os.system(cmd)
 
-
-
-# # for SMAP/MSL
-# dataset = "SMAP"
-dataset = "MSL"
-save_dir = "maml_val" # "maml_un"
+dataset = "SMAP"
+# dataset = "MSL"
+method_type = "maml_val"
+model_type = "norm" # "wo_norm"
+save_dir = f"{method_type}_{model_type}"
+open_maml = True
+using_labeled_val = True
+bs = 128
+cuda = "1"
 csv_path = f"data/SMAP/{dataset.lower()}_train_md.csv"
 meta_data = pd.read_csv(csv_path, sep=",", index_col="chan_id")
-for group in meta_data.index:
-    cmd = f"python maml_for_ad.py --dataset {dataset} --group {group} --save_dir {save_dir} " \
-          f"--using_labeled_val True  --cuda_device 2"
-    print(cmd)
-    os.system(cmd)
+for i in range(3):
+    for group in meta_data.index:
+        cmd = f"python maml_for_ad.py --dataset {dataset} --group {group} --save_dir {save_dir}_{i}" \
+              f" --open_maml {open_maml} --using_labeled_val {using_labeled_val} --norm_model {model_type}" \
+              f" --cuda_device {cuda}  --bs {bs}"
+        print(cmd)
+        os.system(cmd)
+
+# dataset = "WADI"
+# method_type = "maml_val"
+# model_type = "norm" # "wo_norm"
+# save_dir = f"{method_type}_{model_type}"
+# open_maml = True
+# using_labeled_val = True
+# bs = 32
+# cuda = "0"
+# for i in range(5):
+#     group = "A2"
+#     cmd = f"python maml_for_ad.py --dataset {dataset} --group {group} --save_dir {save_dir}_{i}" \
+#           f" --open_maml {open_maml} --using_labeled_val {using_labeled_val} --norm_model {model_type}" \
+#           f" --cuda_device {cuda}  --bs {bs}"
+#     print(cmd)
+#     os.system(cmd)
+
+# dataset = "SWAT"
+# method_type = "maml_val"
+# model_type = "norm" # "wo_norm"
+# save_dir = f"{method_type}_{model_type}"
+# open_maml = True
+# using_labeled_val = True
+# bs = 64
+# cuda = "0"
+# for i in range(5):
+    # group = "A1_A2"
+    # cmd = f"python maml_for_ad.py --dataset {dataset} --group {group} --save_dir {save_dir}_{i}" \
+    #       f" --open_maml {open_maml} --using_labeled_val {using_labeled_val} --norm_model {model_type}" \
+    #       f" --cuda_device {cuda}  --bs {bs}"
+    # print(cmd)
+    # os.system(cmd)
+    # group = "A4_A5"
+    # cmd = f"python maml_for_ad.py --dataset {dataset} --group {group} --save_dir {save_dir}_{i}" \
+    #       f" --open_maml {open_maml} --using_labeled_val {using_labeled_val} --norm_model {model_type}" \
+    #       f" --cuda_device {cuda}  --bs {bs}"
+    # print(cmd)
+    # os.system(cmd)

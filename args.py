@@ -16,18 +16,35 @@ def get_parser():
     parser = argparse.ArgumentParser()
 
     # -- Data params ---
-    parser.add_argument("--dataset", type=str.upper, default="MSL")
-    parser.add_argument("--group", type=str, default="T-9", help="Required for SMD dataset. <group_index>-<index>")
+    parser.add_argument("--dataset", type=str.upper, default="ZX")
+    parser.add_argument("--group", type=str, default="computer-b0503-01", help="Required for SMD dataset. <group_index>-<index>")
     parser.add_argument('--n_features', type=int, help='n_features', default=38)
+    parser.add_argument('--open_maml', type=str2bool, default=False)
+    parser.add_argument('--norm_model', type=str, default="norm")
+    parser.add_argument('--confidence', type=int, default=5)
+    parser.add_argument("--using_labeled_val", type=str2bool, default=False)
     parser.add_argument("--lookback", type=int, default=100)
     parser.add_argument("--normalize", type=str2bool, default=True)
     parser.add_argument("--spec_res", type=str2bool, default=False)
+    parser.add_argument("--save_dir", type=str, default="temp")
+
+    # stgat
+    parser.add_argument('--slide_win', help='slide_win', type=int, default=100)
+    parser.add_argument('--slide_stride', help='slide_stride', type=int, default=1)
+    parser.add_argument('--pre_term', help='pre_term', type=int, default=1)
+    # STGAT layers
+    parser.add_argument("--layer_numb", type=int, default=2)
+    # LSTM layer
+    parser.add_argument("--lstm_n_layers", type=int, default=2)
+    parser.add_argument("--lstm_hid_dim", type=int, default=64)
+    parser.add_argument('--batch', help='batch size', type=int, default=32)
+    parser.add_argument('--lr', help='learing rate', type=int, default=1e-3)
 
     # -- Model params ---
     # 1D conv layer
     parser.add_argument("--kernel_size", type=int, default=7)
     # GAT layers
-    parser.add_argument("--use_gatv2", type=str2bool, default=True)
+    parser.add_argument("--use_gatv2", type=str2bool, default=False)
     parser.add_argument("--feat_gat_embed_dim", type=int, default=None)
     parser.add_argument("--time_gat_embed_dim", type=int, default=None)
     # GRU layer
@@ -43,14 +60,16 @@ def get_parser():
     parser.add_argument("--alpha", type=float, default=0.2)
 
     # --- Train params ---
-    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--retrain", type=str2bool, default=False)
+    parser.add_argument('--epoch', help='train epoch', type=int, default=30)
+    parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--val_split", type=float, default=0.1)
-    parser.add_argument("--bs", type=int, default=256)
+    parser.add_argument("--bs", type=int, default=32)
     parser.add_argument("--init_lr", type=float, default=1e-3)
     parser.add_argument("--shuffle_dataset", type=str2bool, default=True)
     parser.add_argument("--dropout", type=float, default=0.3)
     parser.add_argument("--use_cuda", type=str2bool, default=True)
-    parser.add_argument("--cuda_device", type=str, default="2")
+    parser.add_argument("--cuda_device", type=str, default="0")
     parser.add_argument("--print_every", type=int, default=1)
     parser.add_argument("--log_tensorboard", type=str2bool, default=True)
 
@@ -71,8 +90,8 @@ def get_parser():
     parser.add_argument('--k_qry', type=int, help='k shot for query set', default=15)
     parser.add_argument('--task_num', type=int, help='meta batch size, namely task num', default=32)
     parser.add_argument('--seed', type=int, help='random seed', default=0)
-    parser.add_argument("--save_dir", type=str, default="temp")
-    parser.add_argument("--using_labeled_val", type=str2bool, default=True)
+
+
 
 
     return parser

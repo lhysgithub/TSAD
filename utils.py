@@ -49,10 +49,12 @@ def get_target_dims(dataset):
         return [0]  #None # [0]
     elif dataset == "MSL":
         return [0]  #None # [0]
-    elif dataset == "SMD":
-        return None
+    elif dataset == "ZX":
+        return [10]  #None # [10] [0]
     else:
-        raise ValueError("unknown dataset " + str(dataset))
+        return None
+    # else:
+    #     raise ValueError("unknown dataset " + str(dataset))
 
 def get_dataset_np(config):
     dataset = config.dataset
@@ -60,13 +62,13 @@ def get_dataset_np(config):
         variable = config.group
         train_df = pd.read_csv(f'./data/WT/{variable}/train_orig.csv', sep=",", header=None, dtype=np.float32).dropna(axis=0)
         test_df = pd.read_csv(f'./data/WT/{variable}/test_orig.csv', sep=",", header=None, dtype=np.float32).dropna(axis=0)
-        train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
+        dim = 10
+        # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
 
         # Get test anomaly labels
-        test_df.rename(columns={10:'y'}, inplace=True)
-        test_label = test_df['y']
-        test_df.drop('y', axis=1, inplace=True)
-        return train_df.to_numpy(), test_df.to_numpy(),test_label
+        test_label = test_df.iloc[:, dim]
+        test_df.drop(dim, axis=1, inplace=True)
+        return train_df.to_numpy(), test_df.to_numpy(),test_label.to_numpy()
     elif "SMD" in dataset:
         variable = config.group
         train_df = pd.read_csv(f'./data/SMD/train/machine-{variable}.txt', header=None, sep=",", dtype = np.float32)
@@ -101,13 +103,103 @@ def get_dataset_np(config):
         for i in label_list:
             test_label[i[0]:i[1]+1] = 1.0
         return train, test, test_label
+    elif "WADI" in dataset:
+        variable = config.group
+        if variable == "A2":
+            dim = 82
+        elif variable == "A1":
+            dim = 127
+        train_df = pd.read_csv(f'./data/WADI/{variable}/train.csv', sep=",", header=None, skiprows=1,
+                               dtype=np.float32).fillna(0)
+        test_df = pd.read_csv(f'./data/WADI/{variable}/test.csv', sep=",", header=None,  skiprows=1,
+                               dtype=np.float32).fillna(0)
+        # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
+
+        # Get test anomaly labels
+        test_label = test_df.iloc[:,dim]
+        test_df.drop(dim, axis=1, inplace=True)
+        return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
+    elif "SWAT" in dataset:
+        variable = config.group
+        dim = 0
+        if variable == "A1_A2":
+            dim = 50
+        elif variable == "A4_A5":
+            dim = 77
+        train_df = pd.read_csv(f'./data/SWAT/{variable}/train.csv', sep=",", header=None, skiprows=1,
+                               dtype=np.float32).fillna(0)
+        test_df = pd.read_csv(f'./data/SWAT/{variable}/test.csv', sep=",", header=None, skiprows=1,
+                               dtype=np.float32).fillna(0)
+        # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
+
+        # Get test anomaly labels
+        test_label = test_df.iloc[:, dim]
+        train_df.drop(dim, axis=1, inplace=True)
+        test_df.drop(dim, axis=1, inplace=True)
+        return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
+    elif "BATADAL" in dataset:
+        variable = config.group
+        dim = 43
+        train_df = pd.read_csv(f'./data/BATADAL/train.csv', sep=",", header=None, skiprows=1,
+                               dtype=np.float32).fillna(0)
+        test_df = pd.read_csv(f'./data/BATADAL/test.csv', sep=",", header=None, skiprows=1,
+                               dtype=np.float32).fillna(0)
+        # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
+
+        # Get test anomaly labels
+        test_label = test_df.iloc[:, dim]
+        train_df.drop(dim, axis=1, inplace=True)
+        test_df.drop(dim, axis=1, inplace=True)
+        return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
+    elif "ZX" in dataset:
+        variable = config.group
+        # dim = 13
+        train_df = pd.read_csv(f'./data/ZX/train/{variable}.csv', sep=",", header=None, skiprows=1).fillna(0)
+        test_df = pd.read_csv(f'./data/ZX/test/{variable}.csv', sep=",", header=None, skiprows=1).fillna(0)
+        train_df.drop(0, axis=1, inplace=True)
+        test_df.drop(0, axis=1, inplace=True)
+        dim = len(list(train_df)) - 1
+        # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
+
+        # Get test anomaly labels
+        test_label = test_df.iloc[:, dim]
+        train_df.drop(dim, axis=1, inplace=True)
+        test_df.drop(dim, axis=1, inplace=True)
+        return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
+
+def get_dim(args):
+    n_features = 0
+    if args.dataset == "SMD":
+        n_features = 38
+    elif args.dataset == "SMAP":
+        n_features = 25
+    elif args.dataset == "MSL":
+        n_features = 55
+    elif args.dataset == "WT":
+        n_features = 10
+    elif args.dataset == "WADI":
+        if args.group == "A1":
+            n_features = 127
+        else:
+            n_features = 82
+    elif args.dataset == "SWAT":
+        if args.group == "A1_A2":
+            n_features = 50
+        else:
+            n_features = 77
+    elif args.dataset == "BATADAL":
+        n_features = 43
+    elif args.dataset == "ZX":
+        n_features = 13
+    return n_features
 
 
-def get_data_from_source(args, normalize=False):
+def get_data_from_source(args, normalize=True):
     train_data, test_data, test_label = get_dataset_np(args)
     if normalize:
         train_data, scaler = normalize_data(train_data, scaler=None)
         test_data, _ = normalize_data(test_data, scaler=scaler)
+        args.scaler = scaler
 
     print("train set shape: ", train_data.shape)
     print("test set shape: ", test_data.shape)
@@ -176,12 +268,15 @@ class SlidingWindowDataset(Dataset):
         self.horizon = horizon
 
     def __getitem__(self, index):
+        # index = index * self.window
         x = self.data[index : index + self.window]
         y = self.data[index + self.window : index + self.window + self.horizon]
         return x, y
 
     def __len__(self):
-        return len(self.data) - self.window
+        # return int(len(self.data) / self.window) - 1
+        # return int(len(self.data) - self.window) - 1
+        return int(len(self.data) - self.window)
 
 
 def create_data_loaders(train_dataset, batch_size, val_split=0.1, shuffle=True, test_dataset=None):
@@ -329,6 +424,20 @@ def get_f1(file_name):
     return f1
 
 
+def get_key_from_bf_result(file_name,key):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary["bf_result"][key]
+    return f1
+
+
+def get_key_for_maml(file_name,key):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary[key]
+    return f1
+
+
 def get_f1_for_maml(file_name):
     with open(file_name) as f:
         summary = json.load(f)
@@ -340,6 +449,31 @@ def get_f1_for_omni(file_name):
     with open(file_name) as f:
         summary = json.load(f)
         f1 = summary["best-f1"]
+    return f1
+
+
+def get_key_for_omni(file_name,key):
+    with open(file_name) as f:
+        summary = json.load(f)
+        f1 = summary[key]
+    return f1
+
+
+def get_f1_for_omni_broken(file_name):
+    with open(file_name) as f:
+        lines = f.readlines()
+        for line in lines:
+            if "f1" in line:
+                f1 = float(line.split(":")[1].split(",")[0])
+    return f1
+
+
+def get_key_from_omni_broken(file_name,key):
+    with open(file_name) as f:
+        lines = f.readlines()
+        for line in lines:
+            if key in line:
+                f1 = float(line.split(":")[1].split(",")[0])
     return f1
 
 
@@ -385,6 +519,14 @@ def bin2list(bin):
     return l
 
 
+def bool_list2list(l):
+    l2 = []
+    for i in range(len(l)):
+        if l[i]:
+            l2.append(i)
+    return l2
+
+
 def filter_input(select, x_train):
     temp_x_train = []
     for i in range(len(select)):
@@ -424,6 +566,10 @@ def sample_input_by_bool(select, x_train):
     first = 0
     for i in range(len(select)):
         xi = x_train[:,i].reshape(-1, 1)
+        if i == 0:
+            temp_x_train = xi
+            first = 1
+            continue
         if select[i]:
             if first == 0:
                 temp_x_train = xi
@@ -448,7 +594,8 @@ def split_val_set(x_test,y_test,val_ratio=0.05):
     count = 0
     for i in range(len(y_test)):
         if int(y_test[i]) == 1:
-            index_list.append(i)
+            if find == 0:
+                index_list.append(i)
             find = 1
             count += 1
         elif find == 1:
@@ -477,3 +624,99 @@ def split_val_set(x_test,y_test,val_ratio=0.05):
     new_x_test = np.concatenate((x_test[:start],x_test[end:]))
     new_y_test = np.concatenate((y_test[:start],y_test[end:]))
     return x_val,y_val,new_x_test,new_y_test
+
+
+def split_val_set_v2(x_test,y_test,val_ratio=0.05):
+    dataset_len = int(len(x_test))
+    val_use_len = int(dataset_len * val_ratio)
+    index_list = []
+    lens_list = []
+    find = 0
+    count = 0
+    for i in range(len(y_test)):
+        if int(y_test[i]) == 1:
+            if find == 0:
+                index_list.append(i)
+            find = 1
+            count += 1
+        elif find == 1:
+            find = 0
+            lens_list.append(count)
+            count = 0
+    index = random.choice(index_list)
+    # index = 0
+    # i = np.argmax(lens_list)
+    # index = index_list[i]
+    starts,ends = get_starts_ends(index_list,val_use_len,dataset_len)
+    x_val = []
+    y_val = []
+    new_x_test = []
+    new_y_test = []
+    starts = [0] + starts
+    ends = [0] + ends
+    for i in range(1, len(starts)):
+        x_val.append(x_test[starts[i]:ends[i]])
+        y_val.append(y_test[starts[i]:ends[i]])
+        new_x_test.append(x_test[ends[i-1]:starts[i]])
+        new_y_test.append(y_test[ends[i-1]:starts[i]])
+    new_x_test.append(x_test[ends[len(starts)-1]:])
+    new_y_test.append(y_test[ends[len(starts)-1]:])
+    x_val = np.concatenate(x_val)
+    y_val = np.concatenate(y_val)
+    new_x_test = np.concatenate(new_x_test)
+    new_y_test = np.concatenate(new_y_test)
+    return x_val,y_val,new_x_test,new_y_test
+
+
+def get_starts_ends(indexes, val_use_len, dataset_len):
+    anomaly_types = len(indexes)
+    use_len_per_type = int(val_use_len/anomaly_types)
+    starts = []
+    ends = []
+    for i in range(anomaly_types):
+        # s = indexes[i] - int(use_len_per_type/2)
+        # e = indexes[i] + int(use_len_per_type/2)
+        if i == 0:
+            s = indexes[i] - 100
+            e = indexes[i] + 1
+        else:
+            s = indexes[i] - 99
+            e = indexes[i] + 1
+        starts.append(s if s >= 0 else 0)
+        ends.append(e if e < dataset_len else dataset_len)
+    return starts,ends
+
+
+def print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_eval, iter_time):
+    print(
+        f'[Epoch {epoch + 1:.2f}] | Train loss: {train_mean_loss:.4f} | '
+        f'Test Loss: {test_mean_loss:.2f} | Test_recon_pre_loss: {test_recon_pre_loss:.4f} | '
+        f'best F1: {bf_eval["f1"]:.4f} | precision: '
+        f'{bf_eval["precision"]:.4f} | Recall: {bf_eval["recall"]:.4f} | Time: {iter_time:.4f}')
+    return {
+        'epoch': epoch + 1,
+        'loss': test_mean_loss,
+        'precision': bf_eval["precision"],
+        'recall': bf_eval["recall"],
+        'f1': bf_eval["f1"],
+        'TP': int(bf_eval["TP"]),
+        'TN': int(bf_eval["TN"]),
+        'FP': int(bf_eval["FP"]),
+        'FN': int(bf_eval["FN"]),
+    }
+
+
+def plot_double_curve(data1,data2,name1,name2,filename):
+    plt.cla()
+    plt.figure(figsize=(8, 6))
+    plt.plot(range(len(data1)), data1, color='blue', label=name1)
+    plt.plot(range(len(data2)), data2, color='red', label=name2, alpha=0.5)
+    plt.legend()
+    plt.savefig(filename)
+
+
+def compute_std_mse(data1,data2):
+    d1, scaler = normalize_data(data1, scaler=None)
+    d2, _ = normalize_data(data2, scaler=scaler)
+    predicts_loss = np.sqrt((np.array(d2) - d1) ** 2).mean()
+    return predicts_loss

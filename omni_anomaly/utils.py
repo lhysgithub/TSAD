@@ -104,7 +104,7 @@ def get_dataset_np(config):
 
         # Get test anomaly labels
         test_labels = np.genfromtxt(f'./data/SMD/test_label/machine-{variable}.txt', dtype=np.float32, delimiter=',')
-        return train_df.to_numpy(), test_df.to_numpy(), test_labels
+        return train_df.values, test_df.values, test_labels
     elif "SMAP" in dataset:
         variable = config.group
         train = np.load(f'./data/SMAP/train/{variable}.npy')

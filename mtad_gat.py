@@ -10,6 +10,15 @@ from modules import (
     ReconstructionModel,
 )
 
+# from modules_norm import (
+#     ConvLayer,
+#     FeatureAttentionLayer,
+#     TemporalAttentionLayer,
+#     GRULayer,
+#     Forecasting_Model,
+#     ReconstructionModel,
+# )
+
 
 class MTAD_GAT(nn.Module):
     """ MTAD-GAT model class.

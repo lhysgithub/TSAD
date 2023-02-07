@@ -19,7 +19,7 @@ class ConvLayer(nn.Module):
     def forward(self, x):
         x = x.permute(0, 2, 1)
         x = self.padding(x)
-        x = self.relu(self.bn(self.conv(x)))
+        x = self.relu(self.conv(x))
         return x.permute(0, 2, 1)  # Permute back
 
 
@@ -91,7 +91,7 @@ class FeatureAttentionLayer(nn.Module):
         attention = torch.dropout(attention, self.dropout, train=self.training)
 
         # Computing new node features using the attention
-        h = self.sigmoid(self.bn(torch.matmul(attention, x)))
+        h = self.sigmoid(torch.matmul(attention, x))
 
         return h.permute(0, 2, 1)
 
@@ -189,7 +189,7 @@ class TemporalAttentionLayer(nn.Module):
         attention = torch.softmax(e, dim=2)
         attention = torch.dropout(attention, self.dropout, train=self.training)
 
-        h = self.sigmoid(self.bn(torch.matmul(attention, x)))    # (b, n, k)
+        h = self.sigmoid(torch.matmul(attention, x))    # (b, n, k)
 
         return h
 
@@ -236,8 +236,8 @@ class GRULayer(nn.Module):
 
     def forward(self, x):
         out, h = self.gru(x)
-        out = self.ln(out)
-        h = self.ln(h)
+        # out = self.ln(out)
+        # h = self.ln(h)
         out, h = out[-1, :, :], h[-1, :, :]  # Extracting from last layer
         return out, h
 
@@ -259,7 +259,7 @@ class RNNDecoder(nn.Module):
 
     def forward(self, x):
         decoder_out, _ = self.rnn(x)
-        decoder_out = self.ln(decoder_out)
+        # decoder_out = self.ln(decoder_out)
         return decoder_out
 
 

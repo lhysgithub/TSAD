@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="hongyi@10.129.2.21:22 password" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="daxing2" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
     <serverData>
       <paths name="808">
         <serverdata>
@@ -16,6 +16,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="daxing2">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/hongyi/workspace/TSAD" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="gpu">
         <serverdata>
           <mappings>
@@ -24,6 +31,13 @@
         </serverdata>
       </paths>
       <paths name="hongyi@10.129.2.21:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="hongyi@10.129.2.21:22 password (1)">
         <serverdata>
           <mappings>
             <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" />

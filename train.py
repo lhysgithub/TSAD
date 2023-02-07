@@ -34,16 +34,8 @@ if __name__ == "__main__":
     args_summary = str(args.__dict__)
     print(args_summary)
 
-    if dataset == 'SMD':
-        output_path = f'output/{dataset}/{args.group}'
-        # (x_train, _), (x_test, y_test) = get_data(f"machine-{group_index}-{index}", normalize=normalize)
-        (x_train, _), (x_test, y_test) = get_data_from_source(args,normalize=normalize)
-    elif dataset in ['MSL', 'SMAP']:
-        output_path = f'output/{dataset}/{args.group}'
-        # (x_train, _), (x_test, y_test) = get_data(dataset, normalize=normalize)
-        (x_train, _), (x_test, y_test) = get_data_from_source(args, normalize=normalize)
-    else:
-        raise Exception(f'Dataset "{dataset}" not available.')
+    output_path = f'output/{dataset}/{args.group}'
+    (x_train, _), (x_test, y_test) = get_data_from_source(args, normalize=normalize)
 
     log_dir = f'{output_path}/logs'
     if not os.path.exists(output_path):
@@ -51,7 +43,7 @@ if __name__ == "__main__":
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     # save_path = f"{output_path}/{id}"
-    save_path = f"{output_path}/baseline"
+    save_path = f"{output_path}/{args.save_dir}"
     if not os.path.exists(save_path):
         os.mkdir(save_path)
 
@@ -134,7 +126,10 @@ if __name__ == "__main__":
         "MSL": (0.90, 0.001),
         "SMD-1": (0.9950, 0.001),
         "SMD-2": (0.9925, 0.001),
-        "SMD-3": (0.9999, 0.001)
+        "SMD-3": (0.9999, 0.001),
+        "WADI": (0.90, 0.001),
+        "SWAT": (0.90, 0.001),
+        "BATADAL": (0.90, 0.001),
     }
     key = "SMD-" + args.group[0] if args.dataset == "SMD" else args.dataset
     level, q = level_q_dict[key]
@@ -144,7 +139,7 @@ if __name__ == "__main__":
         q = args.q
 
     # Some suggestions for Epsilon args
-    reg_level_dict = {"SMAP": 0, "MSL": 0, "SMD-1": 1, "SMD-2": 1, "SMD-3": 1}
+    reg_level_dict = {"SMAP": 0, "MSL": 0, "SMD-1": 1, "SMD-2": 1, "SMD-3": 1 ,"WADI":1, "SWAT":1,"BATADAL":1}
     key = "SMD-" + args.group[0] if dataset == "SMD" else dataset
     reg_level = reg_level_dict[key]
 

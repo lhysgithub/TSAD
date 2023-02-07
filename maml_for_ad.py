@@ -50,13 +50,14 @@ import higher
 
 from support.omniglot_loaders import OmniglotNShot
 from mtad_gat import MTAD_GAT
+from mtad_gat_norm import MTAD_GAT_norm
 from args import get_parser
 from timeSeriesDatabase import TimeSeriesDatabase
 from sklearn.metrics import roc_curve, auc, precision_recall_curve, mean_squared_error, f1_score, precision_recall_fscore_support,confusion_matrix, precision_score, recall_score, roc_auc_score
 from eval_methods import bf_search
 import json
 from utils import *
-
+from tqdm import tqdm
 
 def main():
     parser = get_parser()
@@ -74,12 +75,7 @@ def main():
     args.device = device
 
     # 设置数据集的维度和拟合的目标维度
-    if args.dataset == "SMD":
-        args.n_features = 38
-    elif args.dataset == "SMAP":
-        args.n_features = 25
-    elif args.dataset == "MSL":
-        args.n_features = 55
+    args.n_features = get_dim(args)
     target_dims = get_target_dims(args.dataset)
     if target_dims is None:
         out_dim = args.n_features
@@ -113,6 +109,22 @@ def main():
                    recon_hid_dim=args.recon_hid_dim,
                    dropout=args.dropout,
                    alpha=args.alpha).to(device)
+    if args.norm_model=="norm":
+        net = MTAD_GAT_norm(n_features=args.n_features,
+                       window_size=args.lookback,
+                       out_dim=args.out_dim,
+                       kernel_size=args.kernel_size,
+                       use_gatv2=args.use_gatv2,
+                       feat_gat_embed_dim=args.feat_gat_embed_dim,
+                       time_gat_embed_dim=args.time_gat_embed_dim,
+                       gru_n_layers=args.gru_n_layers,
+                       gru_hid_dim=args.gru_hid_dim,
+                       forecast_n_layers=args.fc_n_layers,
+                       forecast_hid_dim=args.fc_hid_dim,
+                       recon_n_layers=args.recon_n_layers,
+                       recon_hid_dim=args.recon_hid_dim,
+                       dropout=args.dropout,
+                       alpha=args.alpha).to(device)
 
     # 设置工作目录
     save_path = f"output/{args.dataset}/{args.group}/{args.save_dir}"
@@ -124,13 +136,27 @@ def main():
     meta_opt = optim.Adam(net.parameters(), lr=1e-3)
 
     # 运行训练和测试
+    best_f1 = 0
     with torch.backends.cudnn.flags(enabled=False):
         train_log = []
         test_log = []
-        for epoch in range(10):
-            train(args,db, net, device, meta_opt, epoch, train_log)
-            test(args,db, net, device, meta_opt, epoch, test_log)
+        for epoch in range(args.epochs):
+            if args.open_maml:
+                train(args,db, net, device, meta_opt, epoch, train_log)
+            test(args, db, net, device, meta_opt, epoch, test_log)
+            if test_log[-1]["f1"] < 0.001 or test_log[-1]["f1"] > 0.999:
+                break
             # plot(log)
+            if test_log[-1]["f1"] > best_f1:
+                torch.save(net.state_dict(), f"{save_path}/best_model.pt")
+
+        # readout graph attention
+        # net.load_state_dict(torch.load(f"{save_path}/best_model.pt", map_location=args.device))
+        # spt_loader, qry_loader = db.next('test')
+        # for x,z,y in qry_loader:
+        #     if y.max()[0]>0.5:
+        #         x = x.to(device)
+        #         attention = net.get_gat_attention(x)
 
     # 记录运行结果
     with open(f"{save_path}/summary.txt", "w") as f:
@@ -151,16 +177,53 @@ def train(args,db, net, device, meta_opt, epoch, log):
         meta_opt.zero_grad()
         inner_opt = torch.optim.Adam(net.parameters(), lr=1e-3)
         meta_opt.zero_grad()
+        spt_losses = [0]
         train_losses = [0]
         pres = []
         recons = []
         inner_gt = []
         inter_gt = []
-        qry_losses = []
+        qry_losses = [0]
         recon_pre_losses = [0]
         with higher.innerloop_ctx(net, inner_opt, track_higher_grads=False) as (fnet, diffopt):
             fnet.train()
-            for x, z, y in spt_loader:
+            # for row, x, z, y, s in tqdm(spt_loader):
+            #     train_loss1 = spt_forward(row, x, z, y, s, args, fnet, diffopt, db)
+            #     spt_losses.append(train_loss1)
+            # print(f"[Epoch {epoch+1}] train_loss: {np.array(spt_losses).mean()}")
+            #
+            # para_dict = {}
+            # for name, parms in fnet.named_parameters():
+            #     para_dict[name] = parms
+            # for name, parms in net.named_parameters():
+            #     parms.data = parms + 1 * (para_dict[name] - parms)
+            #
+            # if args.using_labeled_val:
+            #     net.train()
+            #     for x, z, y in tqdm(qry_loader):
+            #         test_loss, recon, pre, inner_gt_, inter_gt_ = qry_forward(x, z, y, args, net, meta_opt)
+            #         qry_losses.append(test_loss)
+            #         recons.append(recon)
+            #         pres.append(pre)
+            #         inner_gt.append(inner_gt_)
+            #         inter_gt.append(inter_gt_)
+            #
+            #     pres = np.concatenate(pres, axis=0)
+            #     recons = np.concatenate(recons, axis=0)
+            #     inner_gt = np.concatenate(inner_gt, axis=0)
+            #     inter_gt = np.concatenate(inter_gt, axis=0)
+            #     anomaly_scores = np.sqrt((recons - inner_gt) ** 2) + np.sqrt((pres - inner_gt) ** 2)
+            #     # anomaly_scores = np.sqrt((recons - inner_gt) ** 2)
+            #     anomaly_scores = np.mean(anomaly_scores, axis=1)  # 此处使用的是mean，那么前边的损失也需要使用mean！
+            #     bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=args.confidence, step_num=100,
+            #                         verbose=False)
+            #     train_mean_loss = np.array(spt_losses).mean()
+            #     test_mean_loss = np.array(qry_losses).mean()
+            #     test_recon_pre_loss = np.array(recon_pre_losses).mean()
+            #     iter_time = time.time() - start_time
+            #     di = print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_eval, iter_time)
+            #     log.append(di)
+            for x, z, y in tqdm(spt_loader):
                 x = x.to(device)
                 y = y.to(device)
                 z = z.to(device)
@@ -168,6 +231,13 @@ def train(args,db, net, device, meta_opt, epoch, log):
                 if args.target_dims is not None:
                     x = x[:, :, args.target_dims]
                     z = z[:, :, args.target_dims].squeeze(-1)
+                    spt_logits = spt_logits[:, :, args.target_dims]
+                    preds = preds[:, args.target_dims]
+                elif db.target_dims is not None:
+                    x = x[:, :, db.target_dims]
+                    z = z[:, :, db.target_dims].squeeze(-1)
+                    spt_logits = spt_logits[:, :, db.target_dims]
+                    preds = preds[:, db.target_dims]
                 if preds.ndim == 3:
                     preds = preds.squeeze(1)
                 if z.ndim == 3:
@@ -176,81 +246,70 @@ def train(args,db, net, device, meta_opt, epoch, log):
                 diffopt.step(spt_loss)
                 train_losses.append(spt_loss.item())
 
-            net.train()
-            for x, z, y in qry_loader:
-                x = x.to(device)
-                y = y.to(device)
-                z = z.to(device)
-                meta_opt.zero_grad()  # todo test is it work？
-                x_hat = torch.cat((x[:, 1:, :], z), dim=1)
-                pre_logits, original_recon = fnet(x)
-                _, qry_logits = fnet(x_hat)
-                recon = qry_logits[:, -1, :]
-                pre = pre_logits
-                recons.append(recon.detach().cpu().numpy())
-                pres.append(pre.detach().cpu().numpy())
-                z_hat = z.squeeze(dim=1)
-                y_hat = y.squeeze(dim=1)
-                if args.target_dims != None:
-                    z_hat = z_hat[:,args.target_dims]
-                inner_gt.append(z_hat.detach().cpu().numpy())
-                inter_gt.append(y_hat.detach().cpu().numpy())
+            para_dict = {}
+            for name, parms in fnet.named_parameters():
+                para_dict[name] = parms
+            for name, parms in net.named_parameters():
+                parms.data = parms + 0.1*(para_dict[name] - parms)
 
-                qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
-                # qry_loss = qry_loss.max(dim=1)[0]
-                qry_loss = qry_loss.mean(dim=1)
-                qry_loss = F.mse_loss(qry_loss, y_hat * 2)
-                # y_bar = y.repeat(1, qry_loss.shape[1])
-                # qry_loss = F.mse_loss(qry_loss, y_bar*2)
-                # recon_pre_loss = torch.sqrt(F.mse_loss(original_recon, x)) + torch.sqrt(F.mse_loss(pre, z_hat))
-                # recon_pre_losses.append(recon_pre_loss.item())
-                 #+ recon_pre_loss  # + torch.mean(qry_loss)
-                if args.using_labeled_val:
-                    qry_loss.backward()
-                    meta_opt.step()  # todo check is it work
-                qry_losses.append(qry_loss.item())
-            # meta_opt.step()  # todo check is it work
+            net.eval()
+            if args.using_labeled_val:
+                net.train()
+                for x, z, y in tqdm(qry_loader):
+                    x = x.to(device)
+                    y = y.to(device)
+                    z = z.to(device)
+                    meta_opt.zero_grad()  # todo test is it work？
+                    x_hat = torch.cat((x[:, 1:, :], z), dim=1)
+                    pre_logits, original_recon = net(x)
+                    _, qry_logits = net(x_hat)
+                    recon = qry_logits[:, -1, :]
+                    pre = pre_logits
+                    recons.append(recon.detach().cpu().numpy())
+                    pres.append(pre.detach().cpu().numpy())
+                    z_hat = z.squeeze(dim=1)
+                    y_hat = y.squeeze(dim=1)
+                    if args.target_dims != None:
+                        z_hat = z_hat[:,args.target_dims]
+                    inner_gt.append(z_hat.detach().cpu().numpy())
+                    inter_gt.append(y_hat.detach().cpu().numpy())
 
-        pres = np.concatenate(pres, axis=0)
-        recons = np.concatenate(recons, axis=0)
-        inner_gt = np.concatenate(inner_gt, axis=0)
-        inter_gt = np.concatenate(inter_gt, axis=0)
-        anomaly_scores = np.zeros_like(inner_gt)
-        for i in range(pres.shape[1]):
-            a_score = np.sqrt((pres[:, i] - inner_gt[:, i]) ** 2) + np.sqrt((recons[:, i] - inner_gt[:, i]) ** 2)
-            anomaly_scores[:, i] = a_score
-        anomaly_scores = np.mean(anomaly_scores, axis=1) # 此处使用的是mean，那么前边的损失也需要使用mean！
-        # anomaly_scores = np.max(anomaly_scores, axis=1)
-        bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=2, step_num=100, verbose=False)
-        train_mean_loss = np.array(train_losses).mean()
-        test_mean_loss = np.array(qry_losses).mean()
-        test_recon_pre_loss = np.array(recon_pre_losses).mean()
-        iter_time = time.time() - start_time
-        if batch_idx % 1 == 0:
-            print(
-                f'[Train Epoch {epoch + 1:.2f}] | Train loss: {train_mean_loss:.2f} | '
-                f'Test Loss: {test_mean_loss:.2f} | Test_recon_pre_loss: {test_recon_pre_loss:.2f} | '
-                f'best F1: {bf_eval["f1"]:.2f} | precision: '
-                f'{bf_eval["precision"]:.2f} | Recall: {bf_eval["recall"]:.2f} | Time: {iter_time:.2f}')
-        log.append({
-            'epoch': epoch + 1,
-            'loss': test_mean_loss,
-            'precision': bf_eval["precision"],
-            'recall': bf_eval["recall"],
-            'f1': bf_eval["f1"],
-            'mode': 'train',
-            'time': time.time(),
-        })
+                    qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
+                    qry_loss = qry_loss.mean(dim=1)
+                    qry_loss = F.mse_loss(qry_loss, y_hat * args.confidence)
+                    if args.using_labeled_val:
+                        qry_loss.backward()
+                        meta_opt.step()
+                    qry_losses.append(qry_loss.item())
+
+                pres = np.concatenate(pres, axis=0)
+                recons = np.concatenate(recons, axis=0)
+                inner_gt = np.concatenate(inner_gt, axis=0)
+                inter_gt = np.concatenate(inter_gt, axis=0)
+                anomaly_scores = np.zeros_like(inner_gt)
+                for i in range(pres.shape[1]):
+                    a_score = np.sqrt((pres[:, i] - inner_gt[:, i]) ** 2) + np.sqrt((recons[:, i] - inner_gt[:, i]) ** 2)
+                    anomaly_scores[:, i] = a_score
+                anomaly_scores = np.mean(anomaly_scores, axis=1) # 此处使用的是mean，那么前边的损失也需要使用mean！
+                bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=args.confidence, step_num=100, verbose=False)
+                train_mean_loss = np.array(train_losses).mean()
+                test_mean_loss = np.array(qry_losses).mean()
+                test_recon_pre_loss = np.array(recon_pre_losses).mean()
+                iter_time = time.time() - start_time
+                di = print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_eval, iter_time)
+                log.append(di)
 
 
 def test(args,db, net, device, meta_opt, epoch, log):
     net.train()
     n_test_iter = 1
     for batch_idx in range(n_test_iter):
+        start_time = time.time()
         spt_loader, qry_loader = db.next('test')
         meta_opt.zero_grad()
         inner_opt = torch.optim.Adam(net.parameters(), lr=1e-3)
         meta_opt.zero_grad()
+        spt_losses = [0]
         train_losses = [0]
         pres = []
         recons = []
@@ -258,9 +317,46 @@ def test(args,db, net, device, meta_opt, epoch, log):
         inter_gt = []
         qry_losses = []
         recon_pre_losses = [0]
+        # with higher.innerloop_ctx(net, inner_opt, track_higher_grads=False) as (fnet, diffopt):
+        #     for row, x, z, y, s in tqdm(spt_loader):
+        #         train_loss1 = spt_forward(row, x, z, y, s, args, fnet, diffopt, db, "test")
+        #         spt_losses.append(train_loss1)
+        #
+        #     para_dict = {}
+        #     for name, parms in fnet.named_parameters():
+        #         para_dict[name] = parms
+        #     for name, parms in net.named_parameters():
+        #         parms.data = parms + 1 * (para_dict[name] - parms)
+        #
+        # net.eval()
+        # with torch.no_grad():
+        #     for row, x, z, y, s in tqdm(qry_loader):
+        #         test_loss, recon, pre, inner_gt_, inter_gt_ = qry_forward(x, z, y,
+        #                                                                   args, net, meta_opt, "test")
+        #         qry_losses.append(test_loss)
+        #         recons.append(recon)
+        #         pres.append(pre)
+        #         inner_gt.append(inner_gt_)
+        #         inter_gt.append(inter_gt_)
+        #
+        # pres = np.concatenate(pres, axis=0)
+        # recons = np.concatenate(recons, axis=0)
+        # inner_gt = np.concatenate(inner_gt, axis=0)
+        # inter_gt = np.concatenate(inter_gt, axis=0)
+        # anomaly_scores = np.sqrt((pres - inner_gt) ** 2) + np.sqrt((recons - inner_gt) ** 2)
+        # # anomaly_scores = np.sqrt((recons - inner_gt) ** 2)
+        # anomaly_scores = np.mean(anomaly_scores, axis=1)  # 此处使用的是mean，那么前边的损失也需要使用mean！
+        # bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=args.confidence, step_num=100, verbose=False)
+        # train_mean_loss = np.array(spt_losses).mean()
+        # test_mean_loss = np.array(qry_losses).mean()
+        # test_recon_pre_loss = np.array(recon_pre_losses).mean()
+        # iter_time = time.time() - start_time
+        # di = print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_eval, iter_time)
+        # log.append(di)
+
         with higher.innerloop_ctx(net, inner_opt, track_higher_grads=False) as (fnet, diffopt):
             fnet.train()
-            for x, z, y in spt_loader:
+            for x, z, y in tqdm(spt_loader):
                 x = x.to(device)
                 y = y.to(device)
                 z = z.to(device)
@@ -276,8 +372,14 @@ def test(args,db, net, device, meta_opt, epoch, log):
                 diffopt.step(spt_loss)
                 train_losses.append(spt_loss.item())
 
+            para_dict = {}
+            for name, parms in fnet.named_parameters():
+                para_dict[name] = parms
+            for name, parms in net.named_parameters():
+                parms.data = parms + 1 * (para_dict[name] - parms)
+
             net.eval()
-            for x, z, y in qry_loader:
+            for x, z, y in tqdm(qry_loader):
                 x = x.to(device)
                 y = y.to(device)
                 z = z.to(device)
@@ -297,18 +399,11 @@ def test(args,db, net, device, meta_opt, epoch, log):
                 inter_gt.append(y_hat.detach().cpu().numpy())
 
                 qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
-                # qry_loss = qry_loss.max(dim=1)[0]
                 qry_loss = qry_loss.mean(dim=1)
-                qry_loss = F.mse_loss(qry_loss, y_hat * 2)
-                # y_bar = y.repeat(1, qry_loss.shape[1])
-                # qry_loss = F.mse_loss(qry_loss, y_bar*2)
-                # recon_pre_loss = torch.sqrt(F.mse_loss(original_recon, x)) + torch.sqrt(F.mse_loss(pre, z_hat))
-                # recon_pre_losses.append(recon_pre_loss.item())
-                 #+ recon_pre_loss  # + torch.mean(qry_loss)
+                qry_loss = F.mse_loss(qry_loss, y_hat * args.confidence)
                 # qry_loss.backward()
-                # meta_opt.step()  # todo check is it work
+                # meta_opt.step()
                 qry_losses.append(qry_loss.item())
-            # meta_opt.step()  # todo check is it work
 
         pres = np.concatenate(pres, axis=0)
         recons = np.concatenate(recons, axis=0)
@@ -319,51 +414,73 @@ def test(args,db, net, device, meta_opt, epoch, log):
             a_score = np.sqrt((pres[:, i] - inner_gt[:, i]) ** 2) + np.sqrt((recons[:, i] - inner_gt[:, i]) ** 2)
             anomaly_scores[:, i] = a_score
         anomaly_scores = np.mean(anomaly_scores, axis=1) # 此处使用的是mean，那么前边的损失也需要使用mean！
-        # anomaly_scores = np.max(anomaly_scores, axis=1)
-        bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=2, step_num=100, verbose=False)
+        bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=args.confidence, step_num=100, verbose=False)
         train_mean_loss = np.array(train_losses).mean()
         test_mean_loss = np.array(qry_losses).mean()
         test_recon_pre_loss = np.array(recon_pre_losses).mean()
-        # iter_time = time.time() - start_time
-        if batch_idx % 1 == 0:
-            print(
-                f'[Test Epoch {epoch + 1:.2f}] | Train loss: {train_mean_loss:.2f} | '
-                f'Test Loss: {test_mean_loss:.2f} | Test_recon_pre_loss: {test_recon_pre_loss:.2f} | '
-                f'best F1: {bf_eval["f1"]:.2f} | precision: '
-                f'{bf_eval["precision"]:.2f} | Recall: {bf_eval["recall"]:.2f}')
-        log.append({
-            'epoch': epoch + 1,
-            'loss': test_mean_loss,
-            'precision': bf_eval["precision"],
-            'recall': bf_eval["recall"],
-            'f1': bf_eval["f1"],
-            'mode': 'train',
-            'time': time.time(),
-        })
+        iter_time = time.time() - start_time
+        di = print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_eval, iter_time)
+        log.append(di)
 
 
-# def plot(log):
-#     df = pd.DataFrame(log)
-#     fig, ax = plt.subplots(figsize=(6, 4))
-#     train_df = df[df['mode'] == 'train']
-#     test_df = df[df['mode'] == 'test']
-#     ax.plot(train_df['epoch'], train_df['acc'], label='Train')
-#     ax.plot(test_df['epoch'], test_df['acc'], label='Test')
-#     ax.set_xlabel('Epoch')
-#     ax.set_ylabel('Accuracy')
-#     ax.set_ylim(70, 100)
-#     fig.legend(ncol=2, loc='lower right')
-#     fig.tight_layout()
-#     fname = 'maml-accs.png'
-#     print(f'--- Plotting accuracy to {fname}')
-#     fig.savefig(fname)
-#     plt.close(fig)
+def spt_forward(row, x, z, y, s, args, model, opt, db, mode="train"):
+    row, x, z, y, s = [(item).float().to(args.device) for item in
+                                             [row, x, z, y, s]]
+    # z = z.unsqueeze(1)
+    preds,spt_logits = model(x)
+    if preds.ndim == 3:
+        preds = preds.squeeze(1)
+    if z.ndim == 3:
+        z = z.squeeze(1)
+    if args.target_dims is not None:
+        row = row[:,:,args.target_dims]
+        x = x[:, :, args.target_dims]
+        z = z[:, args.target_dims]
+        spt_logits = spt_logits[:, :, args.target_dims]
+        preds = preds[:, args.target_dims]
+    # if mode == "train":
+    #     spt_loss = 0
+    #     for i in range(len(s)):
+    #         sd = bool_list2list(s[i])
+    #         xi = x[i,:,sd]
+    #         zi = z[i,sd]
+    #         spti = spt_logits[i,:,sd]
+    #         pi = preds[i,sd]
+    #         spt_loss += torch.sqrt(F.mse_loss(spti, xi)) + torch.sqrt(F.mse_loss(pi, zi))
+    # else:
+    #     spt_loss = torch.sqrt(F.mse_loss(spt_logits, x)) + torch.sqrt(F.mse_loss(preds, z))
+    spt_loss = torch.sqrt(F.mse_loss(spt_logits, row)) + torch.sqrt(F.mse_loss(preds, z))
+    opt.step(spt_loss)
+    return spt_loss.item()
+
+
+def qry_forward(x, z, y, args, model, opt, mode="train"):
+    x, z, y = [(item).float().to(args.device) for item in
+                                             [x, z, y]]
+    # z = z.unsqueeze(1)
+    opt.zero_grad()
+    x_hat = torch.cat((x[:, 1:, :], z), dim=1)
+    pre_logits,original_recon = model(x)
+    _,qry_logits = model(x_hat)
+    recon = qry_logits[:, -1, :]
+    pre = pre_logits
+    z_hat = z.squeeze(dim=1)
+    y_hat = y.squeeze(dim=1)
+    if args.target_dims != None:
+        z_hat = z_hat[:, args.target_dims]
+    qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
+    # qry_loss = torch.sqrt((recon - z_hat) ** 2)
+    qry_loss = qry_loss.mean(dim=1)
+    qry_loss = F.mse_loss(qry_loss, y_hat * args.confidence)
+    if mode == "train" and args.using_labeled_val:
+        qry_loss.backward()
+        opt.step()
+    inner_gt = z_hat.detach().cpu().numpy()
+    inter_gt = y_hat.detach().cpu().numpy()
+    recons = recon.detach().cpu().numpy()
+    pres = pre.detach().cpu().numpy()
+    return qry_loss.item(), recons, pres, inner_gt, inter_gt
 
 
 if __name__ == '__main__':
     main()
-    # length = int(qry_mes.shape[1] * 0.1)
-    # vals, indices = qry_mes.topk(k=length, dim=1, sorted=True)
-    # kth_vals_column = vals[:, -1].reshape(-1, 1)
-    # kth_vals = kth_vals_column.repeat(1, qry_mes.shape[1])
-    # anormaly_prediction = torch.where(qry_mes > kth_vals, torch.ones_like(qry_mes), torch.zeros_like(qry_mes))
