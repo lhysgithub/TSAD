@@ -88,7 +88,10 @@ class TimeDataset(Dataset):
             ft = data[i - self.config.slide_win:i,:]  # 0~14条
             tar = data[i, :]  # 第15条
             select = np.random.randint(0, 2, self.config.n_features)
-            if np.random.random() < 0.5:
+            if self.config.open_maml:
+                if np.random.random() < 0.5:
+                    select = np.ones_like(select)
+            else:
                 select = np.ones_like(select)
             # selected = bool_list2list(select)
             x_row_arr.append(ft)

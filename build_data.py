@@ -34,11 +34,20 @@ class TimeDataset(Dataset):
         total_time_len, node_num = data.shape
 
         # 如果为训练数据集，则返回窗口起始位置到数据集末尾，步长为slide_stride的滑窗索引，如果为其他数据集则返回步长为1的滑窗索引
-        rang = range(slide_win, total_time_len-pre_term+1, slide_stride) if is_train else range(slide_win, total_time_len-pre_term+1)
+        # rang = range(slide_win, total_time_len-pre_term+1, slide_stride) if is_train else range(slide_win, total_time_len-pre_term+1)
+        # rang = range(slide_win, total_time_len - slide_stride) if is_train else range(slide_win, total_time_len - slide_stride, slide_stride)
+        rang = range(slide_win, total_time_len - slide_stride) if is_train else range(slide_win,
+                                                                                      total_time_len - slide_stride)
 
         for i in rang:
             ft = data[i - slide_win:i,:]  # 0~14条
             tar = data[i+pre_term-1, :]  # 第15条
+            # add future limited todo de-comment for predict future with control
+            # tar_limited = np.expand_dims(tar, axis=0)
+            # tar_limited_repeat = np.repeat(tar_limited, len(ft), axis=0)[:, -1]
+            # ft = np.concatenate([ft, np.expand_dims(tar_limited_repeat, axis=1)], axis=1)
+            # tar = np.concatenate([tar, np.array([0.1])], axis=0)
+            #
             x_arr.append(ft)
             y_arr.append(tar)
             labels_arr.append(labels[i+pre_term-1])
@@ -90,6 +99,24 @@ def data_load(config):
     train_dataset = TimeDataset(train, train_label, edge_index, mode='train', config=cfg)
     test_dataset = TimeDataset(test, test_label, edge_index, mode='test', config=cfg)
     test_dataloader = DataLoader(test_dataset, batch_size=config.batch,shuffle=False, num_workers=0)
+    train_dataloader = DataLoader(train_dataset, batch_size=config.batch, shuffle=True, num_workers=0)
+
+    return train_dataloader, test_dataloader
+
+def data_load_from_exist_np(config):
+    (train, train_label), (test, test_label) = (config.train, config.train_label), (config.test, config.test_label)
+
+    edge_index = get_adge_index(train, config)
+
+    cfg = {
+        'slide_win': config.slide_win,
+        'slide_stride': config.slide_stride,
+        'pre_term': config.pre_term,
+    }
+
+    train_dataset = TimeDataset(train, train_label, edge_index, mode='train', config=cfg)
+    test_dataset = TimeDataset(test, test_label, edge_index, mode='test', config=cfg)
+    test_dataloader = DataLoader(test_dataset, batch_size=config.batch, shuffle=False, num_workers=0)
     train_dataloader = DataLoader(train_dataset, batch_size=config.batch, shuffle=True, num_workers=0)
 
     return train_dataloader, test_dataloader

@@ -113,11 +113,11 @@ def main():
         os.makedirs(save_path)
 
     # 判断是否已经跑过了
-    file_name = save_path + "/" + "summary.txt"
-    if os.path.exists(file_name):
-        f1 = get_key_for_maml(file_name, "f1")
-        print(f"best test f1: {f1}")
-        return 0
+    # file_name = save_path + "/" + "summary.txt"
+    # if os.path.exists(file_name):
+    #     f1 = get_key_for_maml(file_name, "f1")
+    #     print(f"best test f1: {f1}")
+    #     return 0
 
     # 设置优化器
     # meta_opt = optim.SGD(net.parameters(), lr=1e-3, momentum=0.9)# momentum=0.9, #, weight_decay=1e-2
@@ -130,16 +130,17 @@ def main():
         train_log = []
         test_log = []
         for epoch in range(args.epochs):
-
-            if args.open_maml:
-                train(args, db, net, device, meta_opt, epoch, train_log)
+            train(args, db, net, device, meta_opt, epoch, train_log)
+            # if args.open_maml:
+            #     train(args, db, net, device, meta_opt, epoch, train_log)
             recon = test(args, db, net, device, meta_opt, epoch, test_log)
-            if test_log[-1]["f1"] < 0.001 or test_log[-1]["f1"] > 0.999:
-                break
+
             # plot(log)
             if test_log[-1]["f1"] > best_f1:
                 torch.save(net.state_dict(), f"{save_path}/best_model.pt")
                 np.save(f"{save_path}/best_recon.npy",recon)
+            if test_log[-1]["f1"] < 0.001 or test_log[-1]["f1"] > 0.999:
+                break
 
         # readout graph attention
         # net.load_state_dict(torch.load(f"{save_path}/best_model.pt", map_location=args.device))

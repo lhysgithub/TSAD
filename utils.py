@@ -46,32 +46,35 @@ def get_target_dims(dataset):
                      returns None if all input dimensions should be modeled
     """
     if dataset == "SMAP":
-        return [0]  #None # [0]
+        return [0]  # None # [0]
     elif dataset == "MSL":
-        return [0]  #None # [0]
+        return [0]  # None # [0]
     elif dataset == "ZX":
-        return [10]  #None # [10] [0]
+        return [0]  # None # [10] [0]
     else:
         return None
     # else:
     #     raise ValueError("unknown dataset " + str(dataset))
 
+
 def get_dataset_np(config):
     dataset = config.dataset
     if "WT" in dataset:
         variable = config.group
-        train_df = pd.read_csv(f'./data/WT/{variable}/train_orig.csv', sep=",", header=None, dtype=np.float32).dropna(axis=0)
-        test_df = pd.read_csv(f'./data/WT/{variable}/test_orig.csv', sep=",", header=None, dtype=np.float32).dropna(axis=0)
+        train_df = pd.read_csv(f'./data/WT/{variable}/train_orig.csv', sep=",", header=None, dtype=np.float32).dropna(
+            axis=0)
+        test_df = pd.read_csv(f'./data/WT/{variable}/test_orig.csv', sep=",", header=None, dtype=np.float32).dropna(
+            axis=0)
         dim = 10
         # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
 
         # Get test anomaly labels
         test_label = test_df.iloc[:, dim]
         test_df.drop(dim, axis=1, inplace=True)
-        return train_df.to_numpy(), test_df.to_numpy(),test_label.to_numpy()
+        return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
     elif "SMD" in dataset:
         variable = config.group
-        train_df = pd.read_csv(f'./data/SMD/train/machine-{variable}.txt', header=None, sep=",", dtype = np.float32)
+        train_df = pd.read_csv(f'./data/SMD/train/machine-{variable}.txt', header=None, sep=",", dtype=np.float32)
         test_df = pd.read_csv(f'./data/SMD/test/machine-{variable}.txt', header=None, sep=",", dtype=np.float32)
 
         # Get test anomaly labels
@@ -88,7 +91,7 @@ def get_dataset_np(config):
         label_str = labels.loc[variable, "anomaly_sequences"]
         label_list = json.loads(label_str)
         for i in label_list:
-            test_label[i[0]:i[1]+1] = 1.0
+            test_label[i[0]:i[1] + 1] = 1.0
         return train, test, test_label
     elif "MSL" in dataset:
         variable = config.group
@@ -101,7 +104,7 @@ def get_dataset_np(config):
         label_str = labels.loc[variable, "anomaly_sequences"]
         label_list = json.loads(label_str)
         for i in label_list:
-            test_label[i[0]:i[1]+1] = 1.0
+            test_label[i[0]:i[1] + 1] = 1.0
         return train, test, test_label
     elif "WADI" in dataset:
         variable = config.group
@@ -111,12 +114,12 @@ def get_dataset_np(config):
             dim = 127
         train_df = pd.read_csv(f'./data/WADI/{variable}/train.csv', sep=",", header=None, skiprows=1,
                                dtype=np.float32).fillna(0)
-        test_df = pd.read_csv(f'./data/WADI/{variable}/test.csv', sep=",", header=None,  skiprows=1,
-                               dtype=np.float32).fillna(0)
+        test_df = pd.read_csv(f'./data/WADI/{variable}/test.csv', sep=",", header=None, skiprows=1,
+                              dtype=np.float32).fillna(0)
         # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
 
         # Get test anomaly labels
-        test_label = test_df.iloc[:,dim]
+        test_label = test_df.iloc[:, dim]
         test_df.drop(dim, axis=1, inplace=True)
         return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
     elif "SWAT" in dataset:
@@ -129,7 +132,7 @@ def get_dataset_np(config):
         train_df = pd.read_csv(f'./data/SWAT/{variable}/train.csv', sep=",", header=None, skiprows=1,
                                dtype=np.float32).fillna(0)
         test_df = pd.read_csv(f'./data/SWAT/{variable}/test.csv', sep=",", header=None, skiprows=1,
-                               dtype=np.float32).fillna(0)
+                              dtype=np.float32).fillna(0)
         # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
 
         # Get test anomaly labels
@@ -143,7 +146,7 @@ def get_dataset_np(config):
         train_df = pd.read_csv(f'./data/BATADAL/train.csv', sep=",", header=None, skiprows=1,
                                dtype=np.float32).fillna(0)
         test_df = pd.read_csv(f'./data/BATADAL/test.csv', sep=",", header=None, skiprows=1,
-                               dtype=np.float32).fillna(0)
+                              dtype=np.float32).fillna(0)
         # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
 
         # Get test anomaly labels
@@ -166,6 +169,7 @@ def get_dataset_np(config):
         train_df.drop(dim, axis=1, inplace=True)
         test_df.drop(dim, axis=1, inplace=True)
         return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
+
 
 def get_dim(args):
     n_features = 0
@@ -204,7 +208,7 @@ def get_data_from_source(args, normalize=True):
     print("train set shape: ", train_data.shape)
     print("test set shape: ", test_data.shape)
     print("test set label shape: ", None if test_label is None else test_label.shape)
-    train_label = np.zeros(len(train_data),dtype=np.float32)
+    train_label = np.zeros(len(train_data), dtype=np.float32)
     return (train_data, train_label), (test_data, test_label)
 
 
@@ -258,8 +262,6 @@ def get_data_from_source(args, normalize=True):
 #     return (train_data, None), (test_data, test_label)
 
 
-
-
 class SlidingWindowDataset(Dataset):
     def __init__(self, data, window, target_dim=None, horizon=1):
         self.data = data
@@ -269,8 +271,8 @@ class SlidingWindowDataset(Dataset):
 
     def __getitem__(self, index):
         # index = index * self.window
-        x = self.data[index : index + self.window]
-        y = self.data[index + self.window : index + self.window + self.horizon]
+        x = self.data[index: index + self.window]
+        y = self.data[index + self.window: index + self.window + self.horizon]
         return x, y
 
     def __len__(self):
@@ -398,8 +400,8 @@ def adjust_anomaly_scores(scores, dataset, is_train, lookback):
     sep_cuma = np.cumsum(md['num_values'].values) - lookback
     sep_cuma = sep_cuma[:-1]
     buffer = np.arange(1, 20)
-    i_remov = np.sort(np.concatenate((sep_cuma, np.array([i+buffer for i in sep_cuma]).flatten(),
-                                      np.array([i-buffer for i in sep_cuma]).flatten())))
+    i_remov = np.sort(np.concatenate((sep_cuma, np.array([i + buffer for i in sep_cuma]).flatten(),
+                                      np.array([i - buffer for i in sep_cuma]).flatten())))
     i_remov = i_remov[(i_remov < len(adjusted_scores)) & (i_remov >= 0)]
     i_remov = np.sort(np.unique(i_remov))
     if len(i_remov) != 0:
@@ -408,11 +410,11 @@ def adjust_anomaly_scores(scores, dataset, is_train, lookback):
     # Normalize each concatenated part individually
     sep_cuma = np.cumsum(md['num_values'].values) - lookback
     s = [0] + sep_cuma.tolist()
-    for c_start, c_end in [(s[i], s[i+1]) for i in range(len(s)-1)]:
-        e_s = adjusted_scores[c_start: c_end+1]
+    for c_start, c_end in [(s[i], s[i + 1]) for i in range(len(s) - 1)]:
+        e_s = adjusted_scores[c_start: c_end + 1]
 
-        e_s = (e_s - np.min(e_s))/(np.max(e_s) - np.min(e_s))
-        adjusted_scores[c_start: c_end+1] = e_s
+        e_s = (e_s - np.min(e_s)) / (np.max(e_s) - np.min(e_s))
+        adjusted_scores[c_start: c_end + 1] = e_s
 
     return adjusted_scores
 
@@ -424,14 +426,14 @@ def get_f1(file_name):
     return f1
 
 
-def get_key_from_bf_result(file_name,key):
+def get_key_from_bf_result(file_name, key):
     with open(file_name) as f:
         summary = json.load(f)
         f1 = summary["bf_result"][key]
     return f1
 
 
-def get_key_for_maml(file_name,key):
+def get_key_for_maml(file_name, key):
     with open(file_name) as f:
         summary = json.load(f)
         f1 = summary[key]
@@ -452,7 +454,7 @@ def get_f1_for_omni(file_name):
     return f1
 
 
-def get_key_for_omni(file_name,key):
+def get_key_for_omni(file_name, key):
     with open(file_name) as f:
         summary = json.load(f)
         f1 = summary[key]
@@ -468,7 +470,7 @@ def get_f1_for_omni_broken(file_name):
     return f1
 
 
-def get_key_from_omni_broken(file_name,key):
+def get_key_from_omni_broken(file_name, key):
     with open(file_name) as f:
         lines = f.readlines()
         for line in lines:
@@ -491,7 +493,7 @@ def get_recall(file_name):
     return f1
 
 
-def list2bin(l,max_dim):
+def list2bin(l, max_dim):
     bin = []
     for i in range(max_dim):
         if i in l:
@@ -538,20 +540,20 @@ def filter_input(select, x_train):
     return temp_x_train
 
 
-def filter_train_test_set(args, select, x_train,x_test):
-    temp_x_train = filter_input(select,x_train)
+def filter_train_test_set(args, select, x_train, x_test):
+    temp_x_train = filter_input(select, x_train)
     temp_x_test = filter_input(select, x_test)
     if args.normalize:
         temp_x_train, scaler = normalize_data(temp_x_train, scaler=None)
         temp_x_test, _ = normalize_data(temp_x_test, scaler=scaler)
-    return temp_x_train,temp_x_test
+    return temp_x_train, temp_x_test
 
 
 def filter_input_by_bool(select, x_train):
     temp_x_train = []
     first = 0
     for i in range(len(select)):
-        xi = x_train[:,i].reshape(-1, 1)
+        xi = x_train[:, i].reshape(-1, 1)
         if select[i]:
             if first == 0:
                 temp_x_train = xi
@@ -565,7 +567,7 @@ def sample_input_by_bool(select, x_train):
     temp_x_train = []
     first = 0
     for i in range(len(select)):
-        xi = x_train[:,i].reshape(-1, 1)
+        xi = x_train[:, i].reshape(-1, 1)
         if i == 0:
             temp_x_train = xi
             first = 1
@@ -585,7 +587,7 @@ def sample_input_by_bool(select, x_train):
     return temp_x_train
 
 
-def split_val_set(x_test,y_test,val_ratio=0.05):
+def split_val_set(x_test, y_test, val_ratio=0.05):
     dataset_len = int(len(x_test))
     val_use_len = int(dataset_len * val_ratio)
     index_list = []
@@ -608,25 +610,25 @@ def split_val_set(x_test,y_test,val_ratio=0.05):
     # index = index_list[i]
     start = 0
     end = 0
-    if index < val_use_len/2:
+    if index < val_use_len / 2:
         start = 0
         end = val_use_len
-    elif dataset_len - index < val_use_len/2:
+    elif dataset_len - index < val_use_len / 2:
         start = dataset_len - val_use_len
         end = dataset_len
     else:
-        start = index - val_use_len/2
-        end = index + val_use_len/2
+        start = index - val_use_len / 2
+        end = index + val_use_len / 2
     start = int(start)
     end = int(end)
     x_val = x_test[start:end]
     y_val = y_test[start:end]
-    new_x_test = np.concatenate((x_test[:start],x_test[end:]))
-    new_y_test = np.concatenate((y_test[:start],y_test[end:]))
-    return x_val,y_val,new_x_test,new_y_test
+    new_x_test = np.concatenate((x_test[:start], x_test[end:]))
+    new_y_test = np.concatenate((y_test[:start], y_test[end:]))
+    return x_val, y_val, new_x_test, new_y_test
 
 
-def split_val_set_v2(x_test,y_test,val_ratio=0.05):
+def split_val_set_v2(x_test, y_test, val_ratio=0.05):
     dataset_len = int(len(x_test))
     val_use_len = int(dataset_len * val_ratio)
     index_list = []
@@ -647,7 +649,7 @@ def split_val_set_v2(x_test,y_test,val_ratio=0.05):
     # index = 0
     # i = np.argmax(lens_list)
     # index = index_list[i]
-    starts,ends = get_starts_ends(index_list,val_use_len,dataset_len)
+    starts, ends = get_starts_ends(index_list, val_use_len, dataset_len)
     x_val = []
     y_val = []
     new_x_test = []
@@ -657,34 +659,39 @@ def split_val_set_v2(x_test,y_test,val_ratio=0.05):
     for i in range(1, len(starts)):
         x_val.append(x_test[starts[i]:ends[i]])
         y_val.append(y_test[starts[i]:ends[i]])
-        new_x_test.append(x_test[ends[i-1]:starts[i]])
-        new_y_test.append(y_test[ends[i-1]:starts[i]])
-    new_x_test.append(x_test[ends[len(starts)-1]:])
-    new_y_test.append(y_test[ends[len(starts)-1]:])
+        new_x_test.append(x_test[ends[i - 1]:starts[i]])
+        new_y_test.append(y_test[ends[i - 1]:starts[i]])
+    new_x_test.append(x_test[ends[len(starts) - 1]:])
+    new_y_test.append(y_test[ends[len(starts) - 1]:])
     x_val = np.concatenate(x_val)
     y_val = np.concatenate(y_val)
     new_x_test = np.concatenate(new_x_test)
     new_y_test = np.concatenate(new_y_test)
-    return x_val,y_val,new_x_test,new_y_test
+    return x_val, y_val, new_x_test, new_y_test
 
 
 def get_starts_ends(indexes, val_use_len, dataset_len):
     anomaly_types = len(indexes)
-    use_len_per_type = int(val_use_len/anomaly_types)
+    use_len_per_type = int(val_use_len / anomaly_types)
     starts = []
     ends = []
     for i in range(anomaly_types):
-        # s = indexes[i] - int(use_len_per_type/2)
-        # e = indexes[i] + int(use_len_per_type/2)
-        if i == 0:
-            s = indexes[i] - 100
-            e = indexes[i] + 1
-        else:
-            s = indexes[i] - 99
-            e = indexes[i] + 1
+        # multi examples 需要小心使用，小心选出来的val直接包含了全部的abnormal examples。
+        # 并且，如果包含全部abnormal examples的val仍然不能指导测试集区分开normal和abnormal，则可能是异常难以区分的问题，而非模型设计的不好。
+        s = indexes[i] - int(use_len_per_type/2)
+        e = indexes[i] + int(use_len_per_type/2)
+        #
+        # few examples
+        # if i == 0:
+        #     s = indexes[i] - 100
+        #     e = indexes[i] + 1
+        # else:
+        #     s = indexes[i] - 99
+        #     e = indexes[i] + 1
+        #
         starts.append(s if s >= 0 else 0)
         ends.append(e if e < dataset_len else dataset_len)
-    return starts,ends
+    return starts, ends
 
 
 def print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_eval, iter_time):
@@ -706,7 +713,7 @@ def print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_e
     }
 
 
-def plot_double_curve(data1,data2,name1,name2,filename):
+def plot_double_curve(data1, data2, name1, name2, filename):
     plt.cla()
     plt.figure(figsize=(8, 6))
     plt.plot(range(len(data1)), data1, color='blue', label=name1)
@@ -715,8 +722,37 @@ def plot_double_curve(data1,data2,name1,name2,filename):
     plt.savefig(filename)
 
 
-def compute_std_mse(data1,data2):
+def compute_std_mse(data1, data2):
     d1, scaler = normalize_data(data1, scaler=None)
     d2, _ = normalize_data(data2, scaler=scaler)
     predicts_loss = np.sqrt((np.array(d2) - d1) ** 2).mean()
     return predicts_loss
+
+
+def up_down_mse(data1, data2, scope_length=12):
+    data1_max = []
+    data1_min = []
+    data2_max = []
+    data2_min = []
+    for i in range(0, len(data1), scope_length):
+        data1_temp_set = data1[i:i + scope_length]
+        data2_temp_set = data2[i:i + scope_length]
+        data1_max.append(np.max(data1_temp_set, axis=1))
+        data1_min.append(np.min(data1_temp_set, axis=1))
+        data2_max.append(np.max(data2_temp_set, axis=1))
+        data2_min.append(np.min(data2_temp_set, axis=1))
+    up_loss = np.sqrt((np.array(data1_max) - np.array(data2_max)) ** 2).mean(axis=1)
+    down_loss = np.sqrt((np.array(data1_min) - np.array(data2_min)) ** 2).mean(axis=1)
+    loss = up_loss + down_loss
+    return loss
+
+
+def up_down_mse_for_hour(data1, data2, scope_length=12):
+    data1_max = np.max(data1, axis=1)
+    data1_min = np.min(data1, axis=1)
+    data2_max = np.max(data2, axis=1)
+    data2_min = np.min(data2, axis=1)
+    up_loss = np.sqrt((np.array(data1_max) - np.array(data2_max)) ** 2).mean()
+    down_loss = np.sqrt((np.array(data1_min) - np.array(data2_min)) ** 2).mean()
+    loss = up_loss + down_loss
+    return loss

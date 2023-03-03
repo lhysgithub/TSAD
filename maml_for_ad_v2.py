@@ -64,6 +64,10 @@ from tqdm import tqdm
 def main():
     parser = get_parser()
     args = parser.parse_args()
+
+    if os.path.exists(f"output/{args.dataset}/{args.group}/{args.save_dir}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy"):
+        return
+
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda_device
 
     # 设置随机种子
@@ -143,20 +147,22 @@ def main():
         train_log = []
         test_log = []
         for epoch in range(args.epochs):
-            if args.open_maml:
-                train(args, db, net, device, meta_opt, epoch, train_log)
-            recons,attentions,inner_gt,inter_gt = test(args, db, net, device, meta_opt, epoch, test_log)
-            if test_log[-1]["f1"] < 0.01 or test_log[-1]["f1"] > 0.99:
-                break
+            train(args, db, net, device, meta_opt, epoch, train_log)
+            # if args.open_maml:
+            #     train(args, db, net, device, meta_opt, epoch, train_log)
+            recons, attentions, inner_gt, inter_gt = test(args, db, net, device, meta_opt, epoch, test_log)
             # plot(log)
             if test_log[-1]["f1"] > best_f1:
                 torch.save(net.state_dict(), f"{save_path}/best_model.pt")
-                np.save(f"{save_path}/best_recons.npy",recons)
+                np.save(f"{save_path}/best_recons.npy", recons)
                 sum_attentions = attentions.sum(axis=1)
-                np.save(f"{save_path}/best_attentions_{args.open_maml}_data_enhancement.npy", sum_attentions)
-        np.save(f"{save_path}/inner_gts.npy",inner_gt)
-        np.save(f"{save_path}/inter_gts.npy",inter_gt)
-
+                np.save(
+                    f"{save_path}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy",
+                    attentions)
+            if test_log[-1]["f1"] < 0.01 or test_log[-1]["f1"] > 0.99:
+                break
+        np.save(f"{save_path}/inner_gts.npy", inner_gt)
+        np.save(f"{save_path}/inter_gts.npy", inter_gt)
 
         # readout graph attention
         # net.load_state_dict(torch.load(f"{save_path}/best_model.pt", map_location=args.device))
@@ -209,7 +215,7 @@ def train(args, db, net, device, meta_opt, epoch, log):
             if args.using_labeled_val:
                 net.train()
                 for row, x, z, y, s in tqdm(qry_loader):
-                    test_loss, recon, pre, inner_gt_, inter_gt_,attentions_ = qry_forward(x, z, y, args, net, meta_opt)
+                    test_loss, recon, pre, inner_gt_, inter_gt_, attentions_ = qry_forward(x, z, y, args, net, meta_opt)
                     qry_losses.append(test_loss)
                     recons.append(recon)
                     pres.append(pre)
@@ -234,7 +240,7 @@ def train(args, db, net, device, meta_opt, epoch, log):
                 iter_time = time.time() - start_time
                 di = print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_eval, iter_time)
                 log.append(di)
-                return recons,attentions,inner_gt,inter_gt
+                return recons, attentions, inner_gt, inter_gt
 
 
 def test(args, db, net, device, meta_opt, epoch, log):
@@ -268,8 +274,8 @@ def test(args, db, net, device, meta_opt, epoch, log):
         net.eval()
         with torch.no_grad():
             for row, x, z, y, s in tqdm(qry_loader):
-                test_loss, recon, pre, inner_gt_, inter_gt_,attentions_ = qry_forward(x, z, y,
-                                                                          args, net, meta_opt, "test")
+                test_loss, recon, pre, inner_gt_, inter_gt_, attentions_ = qry_forward(x, z, y,
+                                                                                       args, net, meta_opt, "test")
                 qry_losses.append(test_loss)
                 recons.append(recon)
                 pres.append(pre)
@@ -293,7 +299,7 @@ def test(args, db, net, device, meta_opt, epoch, log):
         iter_time = time.time() - start_time
         di = print_info(epoch, train_mean_loss, test_mean_loss, test_recon_pre_loss, bf_eval, iter_time)
         log.append(di)
-        return recons,attentions,inner_gt,inter_gt
+        return recons, attentions, inner_gt, inter_gt
 
 
 def spt_forward(row, x, z, y, s, args, model, opt, db, mode="train"):
@@ -345,7 +351,8 @@ def qry_forward(x, z, y, args, model, opt, mode="train"):
     qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
     # qry_loss = torch.sqrt((recon - z_hat) ** 2)
     qry_loss = qry_loss.mean(dim=1)
-    qry_loss = F.mse_loss(qry_loss, y_hat * args.confidence)
+    # qry_loss = F.mse_loss(qry_loss, y_hat * args.confidence)
+    qry_loss = torch.multiply(qry_loss, y_hat * args.confidence * -1).mean()
     if mode == "train" and args.using_labeled_val:
         qry_loss.backward()
         opt.step()
@@ -354,7 +361,7 @@ def qry_forward(x, z, y, args, model, opt, mode="train"):
     recons = recon.detach().cpu().numpy()
     attentions = attention.detach().cpu().numpy()
     pres = pre.detach().cpu().numpy()
-    return qry_loss.item(), recons, pres, inner_gt, inter_gt,attentions
+    return qry_loss.item(), recons, pres, inner_gt, inter_gt, attentions
 
 
 if __name__ == '__main__':

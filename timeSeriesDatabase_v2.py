@@ -2,7 +2,6 @@ from utils import *
 from torch.utils.data import sampler
 from torch.utils.data import DataLoader, random_split, Subset, SubsetRandomSampler
 
-
 class TimeSeriesDatabase:
     def __init__(self, args, device=None):
         (self.x_train, self.y_train), (x_test, y_test) = get_data_from_source(args, normalize=True)
@@ -35,13 +34,14 @@ class TimeSeriesDatabase:
         data_cache = []
         if mode == 'train':
             spt_dataset = SlidingWindowDataset(data_pack[0], data_pack[1], "train", self.args.lookback, self.args,
-                                               self.args.target_dims)
+                                               self.args.target_dims)  # DC
+            # spt_dataset = SlidingWindowDatasetNoDC(data_pack[0], data_pack[1], "train", self.args.lookback, self.args,
+            #                                    self.args.target_dims) # NoDC
             spt_loader = DataLoader(spt_dataset, batch_size=self.iner_bs, shuffle=True)
-            # qry_dataset = SlidingWindowDatasetv2(data_pack[2], data_pack[3], "train", self.args.lookback, self.args,
-            #                                    self.args.target_dims)
-            qry_dataset = SlidingWindowDatasetv2(data_pack[2], data_pack[3], "test", self.args.lookback, self.args,
+            # qry_dataset = SlidingWindowDatasetv2(data_pack[2], data_pack[3], "test", self.args.lookback, self.args,
+            #                                      self.args.target_dims)
+            qry_dataset = SlidingWindowDataset(data_pack[2], data_pack[3], "test", self.args.lookback, self.args,
                                                  self.args.target_dims)
-            # qry_loader = DataLoader(qry_dataset, batch_size=1, shuffle=False)
             qry_loader = DataLoader(qry_dataset, batch_size=self.iner_bs, shuffle=False)
         else:
             spt_dataset = SlidingWindowDataset(data_pack[0], data_pack[1], "test", self.args.lookback, self.args,
@@ -80,7 +80,10 @@ class SlidingWindowDataset(Dataset):
         # index = index * self.step
         # index = index * self.window
         select = np.random.randint(0, 2, self.args.n_features)
-        if np.random.random() < 0.5:
+        if self.args.open_maml:
+            if np.random.random() < 0.5:
+                select = np.ones_like(select)
+        else:
             select = np.ones_like(select)
         x = self.data[index: index + self.window]
         row = x
@@ -110,7 +113,10 @@ class SlidingWindowDatasetv2(Dataset):
         # index = index * self.step
         index = index * self.window
         select = np.random.randint(0, 2, self.args.n_features)
-        if np.random.random() < 0.5:
+        if self.args.open_maml:
+            if np.random.random() < 0.5:
+                select = np.ones_like(select)
+        else:
             select = np.ones_like(select)
         x = self.data[index: index + self.window]
         row = x
@@ -124,3 +130,6 @@ class SlidingWindowDatasetv2(Dataset):
         # return int(len(self.data) / self.step)-1
         return int(len(self.data) / self.window)
         # return int(len(self.data) - self.window)
+
+
+    # todo check 半监督的数据形式和位置 以提高其attention的效果

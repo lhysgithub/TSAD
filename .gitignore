@@ -9,6 +9,7 @@ data/
 output/
 licences/
 analysis/
+source_data/
 
 # C extensions
 *.so
