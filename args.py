@@ -17,7 +17,7 @@ def get_parser():
 
     # -- Data params ---
     parser.add_argument("--dataset", type=str.upper, default="SMD")
-    parser.add_argument("--group", type=str, default="3-2", help="Required for SMD dataset. <group_index>-<index>")
+    parser.add_argument("--group", type=str, default="1-4", help="Required for SMD dataset. <group_index>-<index>")
     parser.add_argument('--n_features', type=int, help='n_features', default=38)
     parser.add_argument('--open_maml', type=str2bool, default=False)
     parser.add_argument('--norm_model', type=str, default="norm")

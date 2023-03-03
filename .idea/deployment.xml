@@ -1,46 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="daxing2" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="hongyi@10.129.2.20:22" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
     <serverData>
-      <paths name="808">
+      <paths name="hongyi@10.129.2.20:10022">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="daxing">
+      <paths name="hongyi@10.129.2.20:10022 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="daxing2">
+      <paths name="hongyi@10.129.2.20:22">
         <serverdata>
           <mappings>
             <mapping deploy="/home/hongyi/workspace/TSAD" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="gpu">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="hongyi@10.129.2.21:22 password">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="hongyi@10.129.2.21:22 password (1)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
