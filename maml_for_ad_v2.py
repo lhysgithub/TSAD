@@ -39,7 +39,7 @@ def main():
     sum_path = f"output/{args.dataset}/{args.group}/{args.save_dir}/summary.txt"
     if os.path.exists(sum_path):
         f1_ = get_f1_for_maml(sum_path)
-        if 0.99 >= f1_ >= 0.01:
+        if args.save_dir != "temp" and 0.99 >= f1_ >= 0.01:
             return
     # if os.path.exists(f"output/{args.dataset}/{args.group}/{args.save_dir}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy"):
     #     return
@@ -330,8 +330,8 @@ def qry_forward(x, z, y, args, model, opt, mode="train"):
     # qry_loss = torch.sqrt((recon - z_hat) ** 2)
     qry_loss = qry_loss.mean(dim=1)
     # qry_loss = F.mse_loss(qry_loss, y_hat * args.confidence)
-    qry_loss = torch.multiply(qry_loss, y_hat * args.confidence * -1).mean()
-    # qry_loss = torch.multiply(qry_loss, ((y_hat*-2)+torch.ones_like(y_hat))*args.confidence).mean()
+    # qry_loss = torch.multiply(qry_loss, y_hat * args.confidence * -1).mean()
+    qry_loss = torch.multiply(qry_loss, ((y_hat * -2) + torch.ones_like(y_hat)) * args.confidence).mean()
     if mode == "train" and args.using_labeled_val:
         qry_loss.backward()
         opt.step()
