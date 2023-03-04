@@ -1,32 +1,3 @@
-#!/usr/bin/env python3
-#
-# Copyright (c) Facebook, Inc. and its affiliates.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-"""
-This example shows how to use higher to do Model Agnostic Meta Learning (MAML)
-for few-shot Omniglot classification.
-For more details see the original MAML paper:
-https://arxiv.org/abs/1703.03400
-
-This code has been modified from Jackie Loong's PyTorch MAML implementation:
-https://github.com/dragen1860/MAML-Pytorch/blob/master/omniglot_train.py
-
-Our MAML++ fork and experiments are available at:
-https://github.com/bamos/HowToTrainYourMAMLPytorch
-"""
-
 import argparse
 import time
 import os
@@ -65,8 +36,13 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
-    if os.path.exists(f"output/{args.dataset}/{args.group}/{args.save_dir}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy"):
-        return
+    sum_path = f"output/{args.dataset}/{args.group}/{args.save_dir}/summary.txt"
+    if os.path.exists(sum_path):
+        f1_ = get_f1_for_maml(sum_path)
+        if 0.99 >= f1_ >= 0.01:
+            return
+    # if os.path.exists(f"output/{args.dataset}/{args.group}/{args.save_dir}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy"):
+    #     return
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda_device
 
@@ -156,9 +132,9 @@ def main():
                 torch.save(net.state_dict(), f"{save_path}/best_model.pt")
                 np.save(f"{save_path}/best_recons.npy", recons)
                 sum_attentions = attentions.sum(axis=1)
-                np.save(
-                    f"{save_path}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy",
-                    attentions)
+                # np.save(
+                #     f"{save_path}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy",
+                #     attentions)
             if test_log[-1]["f1"] < 0.01 or test_log[-1]["f1"] > 0.99:
                 break
         np.save(f"{save_path}/inner_gts.npy", inner_gt)
@@ -306,6 +282,8 @@ def spt_forward(row, x, z, y, s, args, model, opt, db, mode="train"):
     row, x, z, y, s = [(item).float().to(args.device) for item in
                        [row, x, z, y, s]]
     # z = z.unsqueeze(1)
+    if np.random.random() < args.r1:
+        x = row
     preds, spt_logits = model(x)
     if preds.ndim == 3:
         preds = preds.squeeze(1)
@@ -353,6 +331,7 @@ def qry_forward(x, z, y, args, model, opt, mode="train"):
     qry_loss = qry_loss.mean(dim=1)
     # qry_loss = F.mse_loss(qry_loss, y_hat * args.confidence)
     qry_loss = torch.multiply(qry_loss, y_hat * args.confidence * -1).mean()
+    # qry_loss = torch.multiply(qry_loss, ((y_hat*-2)+torch.ones_like(y_hat))*args.confidence).mean()
     if mode == "train" and args.using_labeled_val:
         qry_loss.backward()
         opt.step()

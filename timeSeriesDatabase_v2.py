@@ -81,7 +81,7 @@ class SlidingWindowDataset(Dataset):
         # index = index * self.window
         select = np.random.randint(0, 2, self.args.n_features)
         if self.args.open_maml:
-            if np.random.random() < 0.5:
+            if np.random.random() < self.args.r2:
                 select = np.ones_like(select)
         else:
             select = np.ones_like(select)
@@ -114,7 +114,7 @@ class SlidingWindowDatasetv2(Dataset):
         index = index * self.window
         select = np.random.randint(0, 2, self.args.n_features)
         if self.args.open_maml:
-            if np.random.random() < 0.5:
+            if np.random.random() < self.args.r2:
                 select = np.ones_like(select)
         else:
             select = np.ones_like(select)

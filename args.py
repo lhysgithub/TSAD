@@ -17,7 +17,7 @@ def get_parser():
 
     # -- Data params ---
     parser.add_argument("--dataset", type=str.upper, default="SMD")
-    parser.add_argument("--group", type=str, default="1-4", help="Required for SMD dataset. <group_index>-<index>")
+    parser.add_argument("--group", type=str, default="2-5", help="Required for SMD dataset. <group_index>-<index>")
     parser.add_argument('--n_features', type=int, help='n_features', default=38)
     parser.add_argument('--open_maml', type=str2bool, default=False)
     parser.add_argument('--norm_model', type=str, default="norm")
@@ -27,6 +27,8 @@ def get_parser():
     parser.add_argument("--normalize", type=str2bool, default=True)
     parser.add_argument("--spec_res", type=str2bool, default=False)
     parser.add_argument("--save_dir", type=str, default="temp")
+    parser.add_argument("--r1", type=float, default=0.5)
+    parser.add_argument("--r2", type=float, default=0.5)
 
     # stgat
     parser.add_argument('--slide_win', help='slide_win', type=int, default=100)
