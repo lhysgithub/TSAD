@@ -35,6 +35,10 @@ def get_data_dim(dataset):
         return 55
     elif dataset == 'SMD':
         return 38
+    elif dataset == 'SWAT':
+        return 77
+    elif dataset == 'BATADAL':
+        return 43
     elif str(dataset).startswith('machine'):
         return 38
     else:
@@ -131,6 +135,38 @@ def get_dataset_np(config):
         for i in label_list:
             test_label[i[0]:i[1]+1] = 1
         return train, test, test_label
+    elif "SWAT" in dataset:
+        variable = config.group
+        dim = 0
+        if variable == "A1_A2":
+            dim = 50
+        elif variable == "A4_A5":
+            dim = 77
+        train_df = pd.read_csv(f'./data/SWAT/{variable}/train.csv', sep=",", header=None, skiprows=1,
+                               dtype=np.float32).fillna(0)
+        test_df = pd.read_csv(f'./data/SWAT/{variable}/test.csv', sep=",", header=None, skiprows=1,
+                              dtype=np.float32).fillna(0)
+        # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
+
+        # Get test anomaly labels
+        test_label = test_df.iloc[:, dim]
+        train_df.drop(dim, axis=1, inplace=True)
+        test_df.drop(dim, axis=1, inplace=True)
+        return train_df.values, test_df.values, test_label.values
+    elif "BATADAL" in dataset:
+        variable = config.group
+        dim = 43
+        train_df = pd.read_csv(f'./data/BATADAL/train.csv', sep=",", header=None, skiprows=1,
+                               dtype=np.float32).fillna(0)
+        test_df = pd.read_csv(f'./data/BATADAL/test.csv', sep=",", header=None, skiprows=1,
+                              dtype=np.float32).fillna(0)
+        # train_df["y"] = np.zeros(train_df.shape[0], dtype=np.float32)
+
+        # Get test anomaly labels
+        test_label = test_df.iloc[:, dim]
+        train_df.drop(dim, axis=1, inplace=True)
+        test_df.drop(dim, axis=1, inplace=True)
+        return train_df.values, test_df.values, test_label.values
 
 
 def get_data_from_source(args, normalize=False):

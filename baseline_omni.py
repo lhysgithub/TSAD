@@ -25,10 +25,14 @@ from omni_anomaly.utils import get_data_dim, get_data, save_z, get_data_from_sou
 class ExpConfig(Config):
     # dataset configuration
     # dataset = "machine-1-2"
-    dataset = "SMD"
-    group = "1-1"
-    cuda_device = "3"
+    # dataset = "SWAT"
+    # group = "A4_A5"
+    dataset = "BATADAL"
+    group = "A2"
+    save_dir_over = "baseline_omni"
+    cuda_device = "1"
     x_dim = get_data_dim(dataset)
+    # x_dim = get_data_dim(dataset+group)
 
     # model architecture configuration
     use_connected_z_q = True
@@ -199,12 +203,12 @@ def main():
             print('=' * 30 + 'result' + '=' * 30)
             pprint(best_valid_metrics)
 
-            args_path = f"{config.save_path}/config.txt"
-            with open(args_path, "w") as f:
-                json.dump(config.__dict__, f, indent=2)
             summary_path = f"{config.save_path}/summary.txt"
             with open(summary_path, "w") as f:
                 json.dump(best_valid_metrics, f, indent=2)
+            args_path = f"{config.save_path}/config.txt"
+            with open(args_path, "w") as f:
+                json.dump(config.__dict__, f, indent=2)
 
 if __name__ == '__main__':
     # get config obj
@@ -216,11 +220,11 @@ if __name__ == '__main__':
     arg_parser.parse_args(sys.argv[3:])
     config.x_dim = get_data_dim(config.dataset)
     os.environ['CUDA_VISIBLE_DEVICES'] = config.cuda_device
-    config.save_path = f"output/{config.dataset}/{config.group}/baseline_omni"
+    config.save_path = f"output/{config.dataset}/{config.group}/{config.save_dir_over}"
     if not os.path.exists(config.save_path):
         os.mkdir(config.save_path)
     summary_path = f"{config.save_path}/summary.txt"
-    if os.path.exists(summary_path):
+    if os.path.exists(summary_path) and config.save_dir_over != "temp":
         print(summary_path)
         exit()
 

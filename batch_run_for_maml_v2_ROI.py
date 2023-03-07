@@ -13,12 +13,12 @@ cuda = "1"
 # dataset = "SMD"
 # group = "2-5"
 
-dataset = "SWAT"
-group = "A4_A5"
-# group = "A1_A2"
+#dataset = "SWAT"
+#group = "A4_A5"
+#group = "A1_A2"
 
-# dataset = "BATADAL"
-# group = "A2"
+dataset = "BATADAL"
+group = "A2"
 
 for j in range(1, 101):
     save_dir = f"ROI_v2_{j}"

@@ -5,6 +5,7 @@ from args import *
 from tqdm import tqdm
 import pandas as pd
 import seaborn as sns
+from utils import *
 
 save_path = ""
 
@@ -223,9 +224,16 @@ def get_attentions(args):
     return attentions, inner_gt, inter_gt
 
 
+def normalization(data):
+    _range = np.max(data) - np.min(data)
+    return (data - np.min(data)) / _range
+
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
+    args.dataset = "SMD"
+    args.group = "1-4"
     args.open_maml = False
     args.using_labeled_val = False  # True False
     wosemdc_attentions, _, _ = get_attentions(args)
@@ -253,17 +261,19 @@ def main():
     center = np.mean(attention_compare_matrix[:4])
     max_1 = np.max(attention_compare_matrix[:4])
     max_2 = np.max(attention_compare_matrix[4])
-    attention_compare_matrix[4] = (attention_compare_matrix[4]/max_2) * max_1
+    ar_ = attention_compare_matrix[4]
+    ar = normalization(ar_)
+    attention_compare_matrix[4] = ar * max_1
     data_pd = pd.DataFrame(attention_compare_matrix.T, index=range(1, 39) ,columns=["w/o Sem & DC", "w/o Sem", "w/o DC", "SemDC",
                                                                 "Abnormal Ratio"])
     print(f"12-1: {data_pd.iloc[12,0]} 12-4: {data_pd.iloc[12,3]} 12-5: {data_pd.iloc[12,4]}")
     print(f"27-1: {data_pd.iloc[27, 0]} 27-4: {data_pd.iloc[27, 3]} 27-5: {data_pd.iloc[27, 4]}")
 
-    plt.figure(figsize=(6, 8))
+    plt.figure(figsize=(5, 8))
     # data_pd = pd.DataFrame(attention_compare_matrix.T[:,:4], columns=["w/o Sem & DC", "w/o Sem", "w/o DC", "SemDC"])
     p = sns.heatmap(data_pd,  cmap="RdBu_r",
                     cbar_kws={"label": f"Attention"}, center=center, #vmin=0, vmax=1,
-                    square=False)#yticklabels=ylabes,
+                    square=False, linewidths=0.3)#yticklabels=ylabes,
     p.set_ylabel("Index")
     title = "Attention Visual Comparison"
     plt.title(title)

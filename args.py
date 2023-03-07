@@ -16,13 +16,13 @@ def get_parser():
     parser = argparse.ArgumentParser()
 
     # -- Data params ---
-    parser.add_argument("--dataset", type=str.upper, default="SWAT")
-    parser.add_argument("--group", type=str, default="A4_A5", help="Required for SMD dataset. <group_index>-<index>")
+    parser.add_argument("--dataset", type=str.upper, default="BATADAL")
+    parser.add_argument("--group", type=str, default="A2", help="Required for SMD dataset. <group_index>-<index>")
     parser.add_argument('--n_features', type=int, help='n_features', default=38)
     parser.add_argument('--open_maml', type=str2bool, default=False)
     parser.add_argument('--norm_model', type=str, default="norm")
     parser.add_argument('--confidence', type=int, default=5)
-    parser.add_argument("--using_labeled_val", type=str2bool, default=True)
+    parser.add_argument("--using_labeled_val", type=str2bool, default=False)
     parser.add_argument("--lookback", type=int, default=100)
     parser.add_argument("--normalize", type=str2bool, default=True)
     parser.add_argument("--spec_res", type=str2bool, default=False)

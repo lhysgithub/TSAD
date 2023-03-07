@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="hongyi@10.129.2.20:22" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="hongyi@10.129.2.20:22 password" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
     <serverData>
-      <paths name="hongyi@10.129.2.20:10022">
+      <paths name="gpu">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/hongyi/workspace/tsad" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
@@ -17,6 +17,13 @@
         </serverdata>
       </paths>
       <paths name="hongyi@10.129.2.20:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/hongyi/workspace/TSAD" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="hongyi@10.129.2.20:22 password">
         <serverdata>
           <mappings>
             <mapping deploy="/home/hongyi/workspace/TSAD" local="$PROJECT_DIR$" />

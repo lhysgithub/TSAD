@@ -32,6 +32,7 @@ if __name__ == "__main__":
     index = args.group[2:]
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda_device
     args_summary = str(args.__dict__)
+    args.save_dir = "baseline_mtad_gat"
     print(args_summary)
 
     output_path = f'output/{dataset}/{args.group}'
