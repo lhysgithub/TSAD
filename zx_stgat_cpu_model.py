@@ -206,3 +206,5 @@ if __name__ == '__main__':
     print(f"scope_test_data.shape: {scope_test_data.shape}")
     print(f"scope_mse: {scope_mse}")
     print(args)
+
+# todo 将功率限制的label换成比例，然后再看看效果
