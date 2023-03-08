@@ -42,11 +42,12 @@ class TimeDataset(Dataset):
         for i in rang:
             ft = data[i - slide_win:i,:]  # 0~14条
             tar = data[i+pre_term-1, :]  # 第15条
+            if self.config["condition_control"]:
             # add future limited todo de-comment for predict future with control
-            # tar_limited = np.expand_dims(tar, axis=0)
-            # tar_limited_repeat = np.repeat(tar_limited, len(ft), axis=0)[:, -1]
-            # ft = np.concatenate([ft, np.expand_dims(tar_limited_repeat, axis=1)], axis=1)
-            # tar = np.concatenate([tar, np.array([0.1])], axis=0)
+                tar_limited = np.expand_dims(tar, axis=0)
+                tar_limited_repeat = np.repeat(tar_limited, len(ft), axis=0)[:, -1]
+                ft = np.concatenate([ft, np.expand_dims(tar_limited_repeat, axis=1)], axis=1)
+                # tar = np.concatenate([tar, np.array([0.1])], axis=0)# done notice 这里直接使用了限制比例，作为这一位维度的值
             #
             x_arr.append(ft)
             y_arr.append(tar)
@@ -71,6 +72,8 @@ class TimeDataset(Dataset):
 
 def get_adge_index(train, config):
     feature_map = list(range(0, train.shape[1]))
+    if config.condition_control:
+        feature_map = list(range(0, train.shape[1]+1))
     fc_struc = get_fc_graph_struc(feature_map)  # 获取所有节点与其他节点的连接关系字典
 
     fc_edge_index = build_loc_net(fc_struc, feature_map, feature_map=feature_map)  # 获取所有节点与其子集节点的连接矩阵
@@ -112,6 +115,7 @@ def data_load_from_exist_np(config):
         'slide_win': config.slide_win,
         'slide_stride': config.slide_stride,
         'pre_term': config.pre_term,
+        'condition_control': config.condition_control
     }
 
     train_dataset = TimeDataset(train, train_label, edge_index, mode='train', config=cfg)

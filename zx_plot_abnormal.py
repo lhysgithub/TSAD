@@ -14,7 +14,7 @@ iterm = "Power" if target_dim == 10 else "CPU Usage"
 resource_pool = "xar03"
 # server_id = "computer-b0504-05"
 server_id = "computer-b0503-01"
-select_day = 12  # 16
+select_day = 13  # 16
 
 # 如果需要遍历所有实体，从此处开启循环
 train_data = pd.read_csv(f'data/ZX/train/{server_id}.csv', sep=",").dropna(axis=0)
@@ -80,7 +80,8 @@ for i in range(len(target_index)):
     column = data.iloc[:, target_dim]
     plt.plot(range(len(column)), column, label=f"{labels[target_dim]}")
     # plt.xticks([int(i/12) for i in range(1, len(column)+1, 12*4)])
-    plt.xticks(range(0, len(column), 12 * 3), range(0, 24, 3))
+    # plt.xticks(range(0, len(column), 12 * 3), range(0, 24, 3))
+    plt.xticks(range(0, len(column), 12), range(0, 24, 1))
     y_max = np.max(column)
     y_min = np.min(column)
     plt.ylabel(labels[target_dim].split("(")[0])
@@ -91,4 +92,4 @@ for i in range(len(target_index)):
         end = index_list[k] + lens_list[k]
         plt.fill_between([start, end], y_min, y_max, facecolor='red', alpha=0.5)
     plt.legend()
-plt.savefig(f"analysis/zx_{server_id}_anomaly_example.pdf")
+plt.savefig(f"analysis/zx_{server_id}_{select_day}_anomaly_example.pdf")

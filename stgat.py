@@ -51,8 +51,11 @@ class STGAT(nn.Module):
 
         self.layer_numb = layer_numb
         self.h_temp = []
+        self.n_features = n_features
 
         self.input_1 = InputLayer(n_features, 1)
+        # if config.condition_control:
+        # self.input_2 = InputLayer(n_features, 3)
         self.input_2 = InputLayer(n_features, 5)
         self.input_3 = InputLayer(n_features, 7)
 
@@ -67,7 +70,10 @@ class STGAT(nn.Module):
         self.stgat_2 = nn.Sequential(*layers2)
         self.stgat_3 = nn.Sequential(*layers3)
 
-        self.bilstm = BiLSTMLayer(n_features * 3, lstm_hid_dim, lstm_n_layers, dropout)
+        # if config.condition_control:
+        self.bilstm = BiLSTMLayer(n_features, lstm_hid_dim, lstm_n_layers, dropout)
+        if self.n_features > 7:
+            self.bilstm = BiLSTMLayer(n_features * 3, lstm_hid_dim, lstm_n_layers, dropout)
         self.recon_model = ReconstructionModel(window_size, 2 * lstm_hid_dim, recon_hid_dim, out_dim, recon_n_layers, dropout)
         self.forest = Forecasting_Model(2 * lstm_hid_dim, recon_hid_dim, out_dim, recon_n_layers*3, dropout)
 
@@ -77,20 +83,26 @@ class STGAT(nn.Module):
         tc_edge_index_sets = get_batch_edge_index(tc_edge_index[-1,:,:], x.shape[0], x.shape[1])
 
         x_1 = x
-        x_2 = self.input_2(x)
-        x_3 = self.input_3(x)
+        if self.n_features > 7:
+            x_2 = self.input_2(x)
+            x_3 = self.input_3(x)
 
         for layer in range(self.layer_numb):
             if layer==0:
                 h_cat_1 = x_1 + self.stgat_1[layer](x_1, fc_edge_index_sets, tc_edge_index_sets)
-                h_cat_2 = x_2 + self.stgat_2[layer](x_2, fc_edge_index_sets, tc_edge_index_sets)
-                h_cat_3 = x_3 + self.stgat_3[layer](x_3, fc_edge_index_sets, tc_edge_index_sets)
+                if self.n_features > 7:
+                    h_cat_2 = x_2 + self.stgat_2[layer](x_2, fc_edge_index_sets, tc_edge_index_sets)
+                    h_cat_3 = x_3 + self.stgat_3[layer](x_3, fc_edge_index_sets, tc_edge_index_sets)
             else:
                 h_cat_1 = h_cat_1 + self.stgat_1[layer](h_cat_1, fc_edge_index_sets, tc_edge_index_sets)
-                h_cat_2 = h_cat_2 + self.stgat_2[layer](h_cat_2, fc_edge_index_sets, tc_edge_index_sets)
-                h_cat_3 = h_cat_3 + self.stgat_3[layer](h_cat_3, fc_edge_index_sets, tc_edge_index_sets)
+                if self.n_features > 7:
+                    h_cat_2 = h_cat_2 + self.stgat_2[layer](h_cat_2, fc_edge_index_sets, tc_edge_index_sets)
+                    h_cat_3 = h_cat_3 + self.stgat_3[layer](h_cat_3, fc_edge_index_sets, tc_edge_index_sets)
 
-        h_cat = torch.cat([h_cat_1, h_cat_2, h_cat_3], dim=2)
+        if self.n_features > 7:
+            h_cat = torch.cat([h_cat_1, h_cat_2, h_cat_3], dim=2)
+        else:
+            h_cat = h_cat_1
 
         out_end = self.bilstm(h_cat)
         h_end = out_end.view(x.shape[0], -1)   # Hidden state for last timestamp

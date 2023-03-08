@@ -29,18 +29,20 @@ def plot_multi_curve(shape, file_name, target_dim):
     plt.fill_between(x, predict_min, predict_max, facecolor='r', alpha=0.2)
     plt.fill_between(x, inner_gt_min, inner_gt_max, facecolor='b', alpha=0.2)
     plt.legend()
-    plt.savefig(f"{save_path}/{file_name}_{target_dim}.pdf")
+    plt.savefig(f"analysis/{file_name}_{target_dim}.pdf")
 
 
 def main():
     parser = get_parser()
     args = parser.parse_args()
+    args.dataset = "ZX"
+    args.group = "computer-b0503-01"
     print(args)
     global save_path
     save_path = f"output/{args.dataset}/{args.group}/{args.save_dir}"
     print(save_path)
-    target_dim = 10
-    plot_multi_curve(5, "stgat_day_infer_hour_scope", target_dim)
+    target_dim = 0
+    plot_multi_curve(5, "zx_stgat_day_infer_hour_scope_condition_control", target_dim)
 
 
 if __name__ == '__main__':

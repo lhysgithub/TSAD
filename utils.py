@@ -195,6 +195,8 @@ def get_dim(args):
         n_features = 43
     elif args.dataset == "ZX":
         n_features = 13
+        if args.condition_control:
+            n_features = 14
     return n_features
 
 

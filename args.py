@@ -15,25 +15,26 @@ def str2bool(v):
 def get_parser():
     parser = argparse.ArgumentParser()
 
+    # -- SemDC ---
+    parser.add_argument('--open_maml', type=str2bool, default=False)
+    parser.add_argument('--norm_model', type=str, default="norm")
+    parser.add_argument("--using_labeled_val", type=str2bool, default=False)
+    parser.add_argument('--confidence', type=int, default=5)
+    parser.add_argument("--r1", type=float, default=0.5)
+    parser.add_argument("--r2", type=float, default=0.5)
+
     # -- Data params ---
     parser.add_argument("--dataset", type=str.upper, default="BATADAL")
     parser.add_argument("--group", type=str, default="A2", help="Required for SMD dataset. <group_index>-<index>")
     parser.add_argument('--n_features', type=int, help='n_features', default=38)
-    parser.add_argument('--open_maml', type=str2bool, default=False)
-    parser.add_argument('--norm_model', type=str, default="norm")
-    parser.add_argument('--confidence', type=int, default=5)
-    parser.add_argument("--using_labeled_val", type=str2bool, default=False)
-    parser.add_argument("--lookback", type=int, default=100)
     parser.add_argument("--normalize", type=str2bool, default=True)
     parser.add_argument("--spec_res", type=str2bool, default=False)
     parser.add_argument("--save_dir", type=str, default="temp")
-    parser.add_argument("--r1", type=float, default=0.5)
-    parser.add_argument("--r2", type=float, default=0.5)
 
     # stgat
+    parser.add_argument("--lookback", type=int, default=100)
     parser.add_argument('--slide_win', help='slide_win', type=int, default=100)
     parser.add_argument('--slide_stride', help='slide_stride', type=int, default=1)
-    parser.add_argument('--pre_term', help='pre_term', type=int, default=1)
     # STGAT layers
     parser.add_argument("--layer_numb", type=int, default=2)
     # LSTM layer
@@ -41,6 +42,11 @@ def get_parser():
     parser.add_argument("--lstm_hid_dim", type=int, default=64)
     parser.add_argument('--batch', help='batch size', type=int, default=32)
     parser.add_argument('--lr', help='learing rate', type=int, default=1e-3)
+
+    # -- ZX ---
+    parser.add_argument("--condition_control", type=str2bool, default=True)
+    parser.add_argument('--pre_term', help='pre_term', type=int, default=1)
+    parser.add_argument('--pre_gap', help='pre_gap', type=int, default=1)
 
     # -- Model params ---
     # 1D conv layer

@@ -16,6 +16,8 @@ from tqdm import tqdm
 from utils import *
 from args import get_parser
 from eval_methods import bf_search
+from sklearn import metrics
+import json
 
 
 def train(config, model, train_dataloader):
@@ -63,6 +65,8 @@ def test(config, model, test_dataloader):
             x, y, fc_edge_index, tc_edge_index = [item.float().to(config.device) for item in
                                                   [x, y, fc_edge_index, tc_edge_index]]
             y = y.unsqueeze(1)
+            if config.condition_control:
+                y = torch.cat((y, y[:, :, -1].unsqueeze(1)), dim=2)
             # Shifting input to include the observed value (y) when doing the reconstruction
             recon_x = torch.cat((x[:, 1:, :], y), dim=1)
             window_recon, _ = model(recon_x, fc_edge_index, tc_edge_index)
@@ -76,7 +80,7 @@ def test(config, model, test_dataloader):
 
             # Extract last reconstruction only
             # 重建后的数据，只取最后时刻点的一条记录 torch.Size([190, 15, 1]) ——>torch.Size([190, 1])
-            recons.append(window_recon[:, -1, :].detach().cpu().numpy())  
+            recons.append(window_recon[:, -1, :].detach().cpu().numpy())
             predicts.append(window_predict.detach().cpu().numpy())
 
             test_label.append(attack_labels.cpu().numpy())
@@ -90,7 +94,7 @@ def main(args):
 
     # 实例化模型
     stgat = STGAT(
-        config.n_features+1,
+        config.n_features,
         config.slide_win,
         config.out_dim,
         kernel_size=config.kernel_size,
@@ -125,8 +129,13 @@ def main(args):
         test_loss = predicts_loss.mean()
         if best_loss > test_loss:
             best_loss = test_loss
-            best_predict = config.scaler.inverse_transform(np.repeat(predicts, config.n_features, axis=1))
-            gt = config.scaler.inverse_transform(np.repeat(test_data, config.n_features, axis=1))
+            # print(predicts.shape)
+            if config.condition_control:
+                best_predict = config.scaler.inverse_transform(np.repeat(predicts, config.n_features-1, axis=1))
+                gt = config.scaler.inverse_transform(np.repeat(test_data, config.n_features-1, axis=1))
+            else:
+                best_predict = config.scaler.inverse_transform(np.repeat(predicts, config.n_features, axis=1))
+                gt = config.scaler.inverse_transform(np.repeat(test_data, config.n_features, axis=1))
         log.append(
             {'epoch': epoch + 1, 'recons_loss': float(recons_loss.mean()), 'predicts_loss': float(predicts_loss.mean()),
              }
@@ -170,10 +179,17 @@ if __name__ == '__main__':
     (train_data, train_label), (test_data, test_label) = get_data_from_source(args)
     data = np.concatenate([train_data, test_data], axis=0)
     labels = np.concatenate([train_label, test_label], axis=0)
+    args.n_features = data.shape[1]
+    if args.condition_control:
+        args.n_features = data.shape[1]+1
     train_scope = 288
     args.epoch = 30
     predict_h_all = []
     gt_h_all = []
+    args.slide_stride = 12
+    pre_gap = args.pre_gap
+    pre_times = int(args.slide_stride / pre_gap)
+
     for j in tqdm(range(train_scope * 2, len(data), train_scope)):
         (args.train, args.train_label), (args.test, args.test_label) = (data[j - train_scope * 2:j - train_scope],
                                                                         labels[j - train_scope * 2:j - train_scope]), (
@@ -181,30 +197,37 @@ if __name__ == '__main__':
                                                                            labels[j - train_scope:j])
         predict_h_day = []
         gt_h_day = []
-        args.slide_stride = 12
-        for pre_t in range(1, args.slide_stride+1, 3):
-            args.pre_term = pre_t
+        for pre_t in range(1, args.slide_stride + 1, pre_gap):  # 预测未来一小时内三个时刻的值
+            args.pre_term = pre_t  # 指定预测间隔
             args.train_dataloader, args.test_dataloader = data_load_from_exist_np(args)
-
             loss, predict_h, gt_h = main(args)
             print(f"predict_h.shape: {predict_h.shape}")
             predict_h_day.append(predict_h)
             gt_h_day.append(gt_h)
-        predict_h_day_nd = np.array(predict_h_day)
+        predict_h_day_nd = np.array(predict_h_day)  # predict_h_day_nd.shape = (pre_times,24,k)
         gt_h_day_nd = np.array(gt_h_day)
         shape = predict_h_day_nd.shape
-        predict_h_all.append(predict_h_day_nd.transpose(1, 2, 0))
-        gt_h_all.append(gt_h_day_nd.transpose(1,2,0))
+        predict_h_all.append(predict_h_day_nd.transpose(1, 2, 0))  # predict_h_all.shape = (days,24,k,pre_times)
+        gt_h_all.append(gt_h_day_nd.transpose(1, 2, 0))
         print(f"predict_h_day_nd.shape: {predict_h_day_nd.shape}")
     scope_predicts = np.concatenate(predict_h_all, axis=0)
     scope_test_data = np.concatenate(gt_h_all, axis=0)
-    scope_mse = up_down_mse_for_hour(scope_predicts[:,target_dims[0],:].squeeze(), scope_test_data[:,target_dims[0],:].squeeze())
+    scope_mse = up_down_mse_for_hour(scope_predicts[:, target_dims[0], :].squeeze(),
+                                     scope_test_data[:, target_dims[0], :].squeeze())
+    point_mse = metrics.mean_squared_error(scope_predicts.ravel(), scope_test_data.ravel())
     # done: change the position of saving predict and ground truth
     save_path = f"output/{args.dataset}/{args.group}/{args.save_dir}"
-    np.save(f"{save_path}/inner_gts_{args.target_dims[0]}_hour.npy", scope_test_data)
-    np.save(f"{save_path}/best_predict_{args.target_dims[0]}_hour.npy", scope_predicts)
+    np.save(f"{save_path}/inner_gts_{args.target_dims[0]}_hour_{pre_gap}.npy", scope_test_data)
+    np.save(f"{save_path}/best_predict_{args.target_dims[0]}_hour_{pre_gap}.npy", scope_predicts)
     print(f"scope_test_data.shape: {scope_test_data.shape}")
     print(f"scope_mse: {scope_mse}")
-    print(args)
+    results = {"scope_mse": float(scope_mse), "point_mse": float(point_mse)}
+    if args.condition_control:
+        with open(f'{save_path}/results_scope_{pre_gap}.json', "w") as f:
+            json.dump(results, f, indent=2)
+    else:
+        with open(f'{save_path}/results_scope_{pre_gap}_False.json',"w") as f:
+            json.dump(results, f, indent=2)
+    # print(args)
 
 # todo 将功率限制的label换成比例，然后再看看效果
