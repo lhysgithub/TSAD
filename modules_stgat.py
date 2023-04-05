@@ -40,7 +40,7 @@ class StgatBlock(nn.Module):
 
         self.embed_dim *= 2
 
-        self.feature_gat_layers = GATConv(window_size, window_size)
+        self.feature_gat_layers = GATConv(window_size, window_size) # todo fix this bug
         self.temporal_gat_layers = GATConv(n_features, n_features)
 
         self.temporal_gcn_layers = GCNConv(n_features, n_features)

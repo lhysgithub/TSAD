@@ -91,7 +91,7 @@ class FeatureAttentionLayer(nn.Module):
         attention = torch.dropout(attention, self.dropout, train=self.training)
 
         # Computing new node features using the attention
-        h = self.sigmoid(self.bn(torch.matmul(attention, x)))
+        h = self.sigmoid(self.bn(torch.matmul(attention, x))) # todo this is the difference
 
         return h.permute(0, 2, 1),attention
 

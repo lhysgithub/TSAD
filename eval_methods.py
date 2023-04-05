@@ -157,6 +157,46 @@ def bf_search(score, label, start, end=None, step_num=1, display_freq=1, verbose
     }
 
 
+def bf_search_pre(score, label, start, end=None, step_num=1, display_freq=1, verbose=True):
+    """
+    Find the best-f1 score by searching best `threshold` in [`start`, `end`).
+    Method from OmniAnomaly (https://github.com/NetManAIOps/OmniAnomaly)
+    """
+
+    # print(f"Finding best f1-score by searching for threshold..")
+    if step_num is None or end is None:
+        end = start
+        step_num = 1
+    search_step, search_range, search_lower_bound = step_num, end - start, start
+    if verbose:
+        print("search range: ", search_lower_bound, search_lower_bound + search_range)
+    threshold = search_lower_bound
+    m = (-1.0, -1.0, -1.0)
+    m_t = 0.0
+    m_l = 0
+    for i in range(search_step):
+        threshold += search_range / float(search_step)
+        target, latency = calc_seq(score, label, threshold)
+        if target[0] > m[0]:
+            m_t = threshold
+            m = target
+            m_l = latency
+        if verbose and i % display_freq == 0:
+            print("cur thr: ", threshold, target, m, m_t)
+
+    return {
+        "f1": m[0],
+        "precision": m[1],
+        "recall": m[2],
+        "TP": m[3],
+        "TN": m[4],
+        "FP": m[5],
+        "FN": m[6],
+        "threshold": m_t,
+        "latency": m_l,
+    }
+
+
 def calc_seq(score, label, threshold):
     predict, latency = adjust_predicts(score, label, threshold, calc_latency=True)
     return calc_point2point(predict, label), latency

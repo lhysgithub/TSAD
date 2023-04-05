@@ -86,3 +86,9 @@ class MTAD_GAT(nn.Module):
         recons = self.recon_model(h_end)
 
         return predictions, recons
+
+    def get_gat_attention(self, x):
+        x = self.conv(x)
+        h_feat, attention = self.feature_gat(x)
+
+        return attention

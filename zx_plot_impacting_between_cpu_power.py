@@ -14,8 +14,9 @@ iterm = "Power" if target_dim == 10 else "CPU Usage"
 resource_pool = "xar03"
 # server_id = "computer-b0504-05"
 server_id = "computer-b0503-01"
-select_day = 10  # 16
-anomaly_days = [9,10]
+select_day = 4  # 16
+# anomaly_days = [9,10]
+select_days = [10,11] # [2,3,4] [7,8,9] [10,11,12] [13,14,15]
 
 # 如果需要遍历所有实体，从此处开启循环
 train_data = pd.read_csv(f'data/ZX/train/{server_id}.csv', sep=",").dropna(axis=0)
@@ -24,11 +25,9 @@ train_data.iloc[:, 0] = pd.to_datetime(train_data.iloc[:, 0]) + datetime.timedel
 test_data.iloc[:, 0] = pd.to_datetime(test_data.iloc[:, 0]) + datetime.timedelta(hours=8)
 train_data.set_index(list(train_data)[0], inplace=True)
 test_data.set_index(list(test_data)[0], inplace=True)
-# data = train_data.iloc[:, target_dim]
-# data = test_data.iloc[:, target_dim]
 data = pd.concat([train_data, test_data])
 if select_day:
-    data = data[data.index.day == select_day]
+    data = data[(data.index.day == select_days[0]) | (data.index.day == select_days[1])]
 pink_time = 21
 pink_time_2 = 7
 
@@ -50,17 +49,16 @@ def find_positive_segment(data):
             count = 0
     return index_list, lens_list
 
-
-# mask2 = ((data.index.hour <= pink_time) & (data.index.hour >= pink_time - 1)) | ((data.index.hour <= pink_time_2) & (data.index.hour >= pink_time_2 - 1))
 t = data.index.time
-mask2 = ((t <= datetime.time(pink_time,30)) & (t >= datetime.time(pink_time-1,30))) | ((t <= datetime.time(pink_time_2+1)) & (t >= datetime.time(pink_time_2)))
-index_list, lens_list = find_positive_segment(mask2)
+mask3 = ((t <= datetime.time(pink_time,30)) & (t >= datetime.time(pink_time-1,30)))
+mask4 = ((t <= datetime.time(pink_time_2+1)) & (t >= datetime.time(pink_time_2)))
+index_list_3, lens_list_3 = find_positive_segment(mask3)
+index_list_4, lens_list_4 = find_positive_segment(mask4)
 plt.figure(figsize=(8 * shape, 6 * shape))
 labels = ["CPU Load (%)", "Storage Read IOPS (IO/s)", "Storage Write IOPS (IO/s)", "Network In Usage (%)",
           "Network Out Usage (%)", "Hypervisor CPU Load (%)", "Hypervisor Memory Usage (%)", "Storage Usage (%)",
           "Storage Read Latency (ms)", "Storage Write Latency (ms)", "Power (W)", "CPU Temperature (°C)",
           "Power Limited", "Aux"]
-
 target_index = [0, 10, 9]
 time_labels = range(13)
 for i in range(len(target_index)):
@@ -68,17 +66,25 @@ for i in range(len(target_index)):
     plt.subplot(3, 1, i+1)
     column = data.iloc[:, target_dim]
     plt.plot(range(len(column)), column, label=f"{labels[target_dim]}")
-    # plt.xticks([int(i/12) for i in range(1, len(column)+1, 12*4)])
-    # plt.xticks(range(0, len(column), 12 * 3), range(0, 24, 3))
-    plt.xticks(range(0, len(column), 12)[:24], range(0, 24, 1))
+    plt.xticks(range(0, len(column), 12*3)[:16], range(0, 24*2, 3))
     y_max = np.max(column)
     y_min = np.min(column)
     plt.ylabel(labels[target_dim].split("(")[0])
     if i ==2:
         plt.xlabel("Time (Hour)")
-    for k in range(len(index_list)):
-        start = index_list[k]
-        end = index_list[k] + lens_list[k]
+    # for k in range(len(index_list_3)):
+    for k in range(0, 1):
+        start = index_list_3[k]
+        end = index_list_3[k] + lens_list_3[k]
         plt.fill_between([start, end], y_min, y_max, facecolor='red', alpha=0.5)
+    for k in range(1, len(index_list_4)):
+        start = index_list_4[k]
+        end = index_list_4[k] + lens_list_4[k]
+        plt.fill_between([start, end], y_min, y_max, facecolor='red', alpha=0.5)
+    # for k in range(len(index_list_4)):
+    #     start = index_list_4[k]
+    #     end = index_list_4[k] + lens_list_4[k]
+    #     plt.fill_between([start, end], y_min, y_max, facecolor='green', alpha=0.5)
     plt.legend()
-plt.savefig(f"analysis/zx_{server_id}_{select_day}_anomaly_example.pdf")
+    # plt.title(f"zx_{server_id}_{select_days}")
+plt.savefig(f"analysis/zx_{server_id}_{select_days}_anomaly_example.pdf")

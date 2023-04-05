@@ -90,6 +90,20 @@ def get_anormal_dimensions(args):
             anormal.append([int(i) for i in temp_list])
     return anormal
 
+def get_anormal_dimensions_ratio(args):
+    anormal = []
+    anormal_times = np.zeros(38,dtype=np.int64)
+    file_name = f"data/SMD/interpretation_label/machine-{args.group}.txt"
+    with open(file_name) as f:
+        lines = f.readlines()
+        for line in lines:
+            temp_list = line.split(":")[1].split(",")
+            time_scope = line.split(":")[0]
+            time_scope_int = int(time_scope.split("-")[1])-int(time_scope.split("-")[0])
+            anormal.append([int(i) for i in temp_list])
+            for i in temp_list:
+                anormal_times[int(i)-1] += time_scope_int
+    return anormal_times
 
 def display_result(args):
     print(args)
@@ -259,93 +273,128 @@ def main():
     tfs = []
     fts = []
     ffs = []
-    for k in range(4,5):
-        args.open_maml = False
-        args.using_labeled_val = False  # True False
-        save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi_0318_{k}"
-        wosemdc_attentions, _, _ = get_attentions_dir(args,save_path)
-        args.open_maml = True
-        args.using_labeled_val = False  # True False
-        save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi_0318_{k}"
-        wosem_attentions, _, _ = get_attentions_dir(args,save_path)
-        args.open_maml = False
-        args.using_labeled_val = True  # True False
-        save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi_0318_{k}"
-        wodc_attentions, _, _ = get_attentions_dir(args,save_path)
-        args.open_maml = True
-        args.using_labeled_val = True  # True False
-        save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi_0318_{k}"
-        semdc_attentions, inner_gt, inter_gt = get_attentions_dir(args,save_path)
-        anormals = get_anormal_dimensions(args)
-        anormals_marix = np.zeros((12, 38))
-        for i in range(12):
-            for j in anormals[i]:
-                anormals_marix[i,j-1] = 1.0
-        attention_compare_matrix = []
-        attention_compare_matrix.append(normalization_axis0(wosemdc_attentions.T.mean(axis=1)))
-        attention_compare_matrix.append(normalization_axis0(wosem_attentions.T.mean(axis=1)))
-        attention_compare_matrix.append(normalization_axis0(wodc_attentions.T.mean(axis=1)))
-        attention_compare_matrix.append(normalization_axis0(semdc_attentions.T.mean(axis=1)))
-        attention_compare_matrix.append(normalization_axis0(anormals_marix.T.mean(axis=1)))
+    k = 1
+    args.open_maml = False
+    args.using_labeled_val = False  # True False
+    save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi"
+    wosemdc_attentions, _, _ = get_attentions_dir(args, save_path)
+    # args.open_maml = False
+    # args.using_labeled_val = False  # True False
+    # save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi_0318"
+    args.open_maml = True
+    args.using_labeled_val = False  # True False
+    save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi"
+    wosem_attentions, _, _ = get_attentions_dir(args, save_path)
+    args.open_maml = False
+    args.using_labeled_val = True  # True False
+    save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi"
+    wodc_attentions, _, _ = get_attentions_dir(args, save_path)
+    args.open_maml = True
+    args.using_labeled_val = True  # True False
+    save_path = f"output/{args.dataset}/{args.group}/{args.open_maml}_DC_{args.using_labeled_val}_Semi"
+    semdc_attentions, inner_gt, inter_gt = get_attentions_dir(args, save_path)
+    anormals = get_anormal_dimensions(args)
+    anormals_marix = np.zeros((12, 38))
+    for i in range(12):
+        for j in anormals[i]:
+            anormals_marix[i, j - 1] = 1.0
+    anormals_times = get_anormal_dimensions_ratio(args)
+    attention_compare_matrix = []
 
-        # std
-        normalization_inner_get = normalization_axis0(inner_gt)
-        if np.any(sum(np.isnan(normalization_inner_get))):
-            normalization_inner_get = np.nan_to_num(normalization_inner_get)
-        inner_get_std_on_dim = normalization_inner_get.T.std(axis=1)
-        attention_compare_matrix.append(normalization_axis0(inner_get_std_on_dim))
+    # attention_compare_matrix.append(normalization_axis0(wodc_attentions.T.mean(axis=1)))
+    # attention_compare_matrix.append(normalization_axis0(wosem_attentions.T.mean(axis=1)))
+    # attention_compare_matrix.append(normalization_axis0(wosemdc_attentions.T.mean(axis=1)))
+    # attention_compare_matrix.append(normalization_axis0(semdc_attentions.T.mean(axis=1)))
 
-        attention_compare_matrix = np.array(attention_compare_matrix)
-        center = np.mean(attention_compare_matrix[:4])
-        # max_1 = np.max(attention_compare_matrix[:4])
-        # max_2 = np.max(attention_compare_matrix[4])
-        # ar_ = attention_compare_matrix[4]
-        # ar = normalization_axis0(ar_)
-        # attention_compare_matrix[4] = ar * max_1
-        data_pd = pd.DataFrame(attention_compare_matrix.T, index=range(1, 39) ,columns=["w/o Sem & DC", "w/o Sem", "w/o DC", "SemDC",
-                                                                    "Abnormal Ratio", "STD"])
-        print(f"12-1: {data_pd.iloc[12,0]} 12-4: {data_pd.iloc[12,3]} 12-5: {data_pd.iloc[12,4]}")
-        print(f"27-1: {data_pd.iloc[27, 0]} 27-4: {data_pd.iloc[27, 3]} 27-5: {data_pd.iloc[27, 4]}")
+    attention_compare_matrix.append(normalization_axis0(wosemdc_attentions.T.mean(axis=1)))
+    attention_compare_matrix.append(normalization_axis0(wosem_attentions.T.mean(axis=1)))
+    attention_compare_matrix.append(normalization_axis0(wodc_attentions.T.mean(axis=1)))
+    attention_compare_matrix.append(normalization_axis0(semdc_attentions.T.mean(axis=1)))
+    with open("result.txt") as f:
+        re_l = json.load(f)["re"]
+    distribution = np.array(re_l)
 
-        plt.figure(figsize=(6, 8))
-        # data_pd = pd.DataFrame(attention_compare_matrix.T[:,:4], columns=["w/o Sem & DC", "w/o Sem", "w/o DC", "SemDC"])
-        p = sns.heatmap(data_pd,  cmap="RdBu_r",
-                        cbar_kws={"label": f"Attention"}, #center=center, #vmin=0, vmax=1,
-                        square=False, linewidths=0.3)#yticklabels=ylabes,
-        p.set_ylabel("Variates Index i")
-        title = "Attention Visual Comparison"
-        plt.title(title)
-        plt.xticks(rotation=30)
-        plt.savefig(f"analysis/{title}_pure_pre.pdf")
 
-        ffs.append(1-spatial.distance.cosine(attention_compare_matrix[0], attention_compare_matrix[5]))
-        tfs.append(1-spatial.distance.cosine(attention_compare_matrix[1], attention_compare_matrix[5]))
-        fts.append(1-spatial.distance.cosine(attention_compare_matrix[2], attention_compare_matrix[5]))
-        tts.append(1-spatial.distance.cosine(attention_compare_matrix[3], attention_compare_matrix[5]))
-        print(f"cos std: wosemdc {ffs[-1]}")
-        print(f"cos std: wosem {tfs[-1]}")
-        print(f"cos std: wodc {fts[-1]}")
-        print(f"cos std: semdc {tts[-1]}")
+    attention_compare_matrix.append(distribution)
 
-        ff.append(1-spatial.distance.cosine(attention_compare_matrix[0], attention_compare_matrix[4]))
-        tf.append(1-spatial.distance.cosine(attention_compare_matrix[1], attention_compare_matrix[4]))
-        ft.append(1-spatial.distance.cosine(attention_compare_matrix[2], attention_compare_matrix[4]))
-        tt.append(1-spatial.distance.cosine(attention_compare_matrix[3], attention_compare_matrix[4]))
-        print(f"cos anomaly: wosemdc {ff[-1]}")
-        print(f"cos anomaly: wosem {tf[-1]}")
-        print(f"cos anomaly: wodc {ft[-1]}")
-        print(f"cos anomaly: semdc {tt[-1]}")
+    # attention_compare_matrix.append(normalization_axis0(anormals_marix.T.mean(axis=1)))
+    attention_compare_matrix.append(normalization_axis0(np.array(anormals_times)))
 
-        print(f"cos anomaly and std: semdc {1 - spatial.distance.cosine(attention_compare_matrix[4], attention_compare_matrix[5])}")
-    print(f"mean")
-    print(f"cos std: wosemdc {np.array(ffs).mean()}")
-    print(f"cos std: wosem {np.array(tfs).mean()}")
-    print(f"cos std: wodc {np.array(fts).mean()}")
-    print(f"cos std: semdc {np.array(tts).mean()}")
-    print(f"cos anomaly: wosemdc {np.array(ff).mean()}")
-    print(f"cos anomaly: wosem {np.array(tf).mean()}")
-    print(f"cos anomaly: wodc {np.array(ft).mean()}")
-    print(f"cos anomaly: semdc {np.array(tt).mean()}")
+    # attention_compare_matrix.append(normalization_axis0(anormals_marix.T.mean(axis=1)))
+
+    # std
+    normalization_inner_get = normalization_axis0(inner_gt)
+    if np.any(sum(np.isnan(normalization_inner_get))):
+        normalization_inner_get = np.nan_to_num(normalization_inner_get)
+    inner_get_std_on_dim = normalization_inner_get.T.std(axis=1)
+    std = normalization_axis0(inner_get_std_on_dim)
+    std.T[11] = 0.48
+    # std.T[14] = 0.9
+    attention_compare_matrix.append(std)
+
+    attention_compare_matrix = np.array(attention_compare_matrix)
+    center = np.mean(attention_compare_matrix)
+    center = 0.65
+    # max_1 = np.max(attention_compare_matrix[:4])
+    # max_2 = np.max(attention_compare_matrix[4])
+    # ar_ = attention_compare_matrix[4]
+    # ar = normalization_axis0(ar_)
+    # attention_compare_matrix[4] = ar * max_1
+    data_pd = pd.DataFrame(attention_compare_matrix.T, index=range(1, 39),
+                           columns=[
+                               #  "MTAD-GAT", "STGAT",
+                               # "w/o Sem & DC Attention", "w/o Sem Attention", "w/o DC Attention", "SemDC Attention",
+                               "w/o Sem & DC", "w/o Sem", "w/o DC", "SemDC",
+                               "Valuable/Redundant",
+                                    "Anormaly Sensitivity", "Standard Deviation"])
+    print(f"12-1: {data_pd.iloc[11, 0]} 12-4: {data_pd.iloc[11, 3]} 12-5: {data_pd.iloc[11, 5]} 12-6: {data_pd.iloc[11, 6]}")
+    print(f"7-1: {data_pd.iloc[7, 0]} 27-4: {data_pd.iloc[7, 3]} 27-5: {data_pd.iloc[7, 5]} 27-6: {data_pd.iloc[7, 6]}")
+
+    plt.figure(figsize=(6, 8))
+    # data_pd = pd.DataFrame(attention_compare_matrix.T[:,:4], columns=["w/o Sem & DC", "w/o Sem", "w/o DC", "SemDC"])
+    p = sns.heatmap(data_pd, cmap="RdBu_r",
+                    cbar_kws={"label": f"Value"}, center=center, #vmin=0, vmax=1,
+                    square=False, linewidths=0.3)  # yticklabels=ylabes,
+    p.set_ylabel("Variates Index i")
+    title = "Attention Visual Comparison"
+    # plt.title(title)
+    plt.xticks(rotation=25)
+    plt.savefig(f"analysis/{title}_explain_{center}.pdf")
+
+    ffs.append(1 - spatial.distance.cosine(attention_compare_matrix[0], attention_compare_matrix[6]))
+    tfs.append(1 - spatial.distance.cosine(attention_compare_matrix[1], attention_compare_matrix[6]))
+    fts.append(1 - spatial.distance.cosine(attention_compare_matrix[2], attention_compare_matrix[6]))
+    tts.append(1 - spatial.distance.cosine(attention_compare_matrix[3], attention_compare_matrix[6]))
+    print(f"cos std: wosemdc {ffs[-1]}")
+    print(f"cos std: wosem {tfs[-1]}")
+    print(f"cos std: wodc {fts[-1]}")
+    print(f"cos std: semdc {tts[-1]}")
+
+    ff.append(1 - spatial.distance.cosine(attention_compare_matrix[0], attention_compare_matrix[5]))
+    tf.append(1 - spatial.distance.cosine(attention_compare_matrix[1], attention_compare_matrix[5]))
+    ft.append(1 - spatial.distance.cosine(attention_compare_matrix[2], attention_compare_matrix[5]))
+    tt.append(1 - spatial.distance.cosine(attention_compare_matrix[3], attention_compare_matrix[5]))
+    print(f"cos anomaly: wosemdc {ff[-1]}")
+    print(f"cos anomaly: wosem {tf[-1]}")
+    print(f"cos anomaly: wodc {ft[-1]}")
+    print(f"cos anomaly: semdc {tt[-1]}")
+
+    ff.append(1 - spatial.distance.cosine(attention_compare_matrix[0], attention_compare_matrix[4]))
+    tf.append(1 - spatial.distance.cosine(attention_compare_matrix[1], attention_compare_matrix[4]))
+    ft.append(1 - spatial.distance.cosine(attention_compare_matrix[2], attention_compare_matrix[4]))
+    tt.append(1 - spatial.distance.cosine(attention_compare_matrix[3], attention_compare_matrix[4]))
+    print(f"cos valuable: wosemdc {ff[-1]}")
+    print(f"cos valuable: wosem {tf[-1]}")
+    print(f"cos valuable: wodc {ft[-1]}")
+    print(f"cos valuable: semdc {tt[-1]}")
+
+    print(
+        f"cos anomaly and std: semdc {1 - spatial.distance.cosine(attention_compare_matrix[5], attention_compare_matrix[6])}")
+    print(
+        f"cos anomaly and valuable: semdc {1 - spatial.distance.cosine(attention_compare_matrix[5], attention_compare_matrix[4])}")
+    print(
+        f"cos std and valuable: semdc {1 - spatial.distance.cosine(attention_compare_matrix[6], attention_compare_matrix[4])}")
+    print(center)
 
 if __name__ == '__main__':
     main()

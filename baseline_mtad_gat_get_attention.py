@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from args import get_parser
 from utils import *
-from mtad_gat import MTAD_GAT
+from mtad_gat_norm import MTAD_GAT_norm
 from prediction import Predictor
 from training import Trainer
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         train_dataset, batch_size, val_split, shuffle_dataset, test_dataset=test_dataset
     )
 
-    model = MTAD_GAT(
+    model = MTAD_GAT_norm(
         n_features,
         window_size,
         out_dim,
@@ -168,7 +168,11 @@ if __name__ == "__main__":
     label = y_test[window_size:] if y_test is not None else None
     predictor.predict_anomalies(x_train, x_test, label)
 
+    attentions = get_attention_from_model(test_loader, args.cuda_device, best_model)
     # Save config
     # args_path = f"{save_path}/config.txt"
     # with open(args_path, "w") as f:
     #     json.dump(args.__dict__, f, indent=2)
+    attentions_path = f"{save_path}/attention.npy"
+    np.save(attentions_path, attentions)
+

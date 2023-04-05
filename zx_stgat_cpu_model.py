@@ -92,21 +92,23 @@ def test(config, model, test_dataloader):
 def main(args):
     config = args
 
-    # 实例化模型
-    stgat = STGAT(
-        config.n_features,
-        config.slide_win,
-        config.out_dim,
-        kernel_size=config.kernel_size,
-        layer_numb=config.layer_numb,
-        lstm_n_layers=config.lstm_n_layers,
-        lstm_hid_dim=config.lstm_hid_dim,
-        recon_n_layers=config.recon_n_layers,
-        recon_hid_dim=config.recon_hid_dim,
-        dropout=config.dropout,
-        alpha=config.alpha
-    ).to(config.device)
-    # think: 每日训练模型时初始化，还是一直训练一个模型？思考ARIMA的话，是每次训练时都初始化
+    stgat = args.stgat
+
+    # # 实例化模型
+    # stgat = STGAT(
+    #     config.n_features,
+    #     config.slide_win,
+    #     config.out_dim,
+    #     kernel_size=config.kernel_size,
+    #     layer_numb=config.layer_numb,
+    #     lstm_n_layers=config.lstm_n_layers,
+    #     lstm_hid_dim=config.lstm_hid_dim,
+    #     recon_n_layers=config.recon_n_layers,
+    #     recon_hid_dim=config.recon_hid_dim,
+    #     dropout=config.dropout,
+    #     alpha=config.alpha
+    # ).to(config.device)
+    # # think: 每日训练模型时初始化，还是一直训练一个模型？思考ARIMA的话，是每次训练时都初始化
 
     # 设置工作目录
     save_path = f"output/{args.dataset}/{args.group}/{args.save_dir}"
@@ -189,6 +191,23 @@ if __name__ == '__main__':
     args.slide_stride = 12
     pre_gap = args.pre_gap
     pre_times = int(args.slide_stride / pre_gap)
+
+    # 实例化模型
+    stgat = STGAT(
+        args.n_features,
+        args.slide_win,
+        args.out_dim,
+        kernel_size=args.kernel_size,
+        layer_numb=args.layer_numb,
+        lstm_n_layers=args.lstm_n_layers,
+        lstm_hid_dim=args.lstm_hid_dim,
+        recon_n_layers=args.recon_n_layers,
+        recon_hid_dim=args.recon_hid_dim,
+        dropout=args.dropout,
+        alpha=args.alpha
+    ).to(args.device)
+    # think: 每日训练模型时初始化，还是一直训练一个模型？思考ARIMA的话，是每次训练时都初始化
+    args.stgat = stgat
 
     for j in tqdm(range(train_scope * 2, len(data), train_scope)):
         (args.train, args.train_label), (args.test, args.test_label) = (data[j - train_scope * 2:j - train_scope],

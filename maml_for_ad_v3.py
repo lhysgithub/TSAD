@@ -38,14 +38,9 @@ def main():
 
     sum_path = f"output/{args.dataset}/{args.group}/{args.save_dir}/summary.txt"
     if os.path.exists(sum_path):
-        try:
-            f1_ = get_f1_for_maml(sum_path)
-            if args.save_dir != "temp" and 0.99 >= f1_ >= 0.01:
-                return
-        except Exception as e:
-            print("")
-    # if os.path.exists(f"output/{args.dataset}/{args.group}/{args.save_dir}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy"):
-    #     return
+        f1_ = get_f1_for_maml(sum_path)
+        if args.save_dir != "temp" and 0.99 >= f1_ >= 0.01:
+            return
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda_device
 
@@ -117,7 +112,6 @@ def main():
         os.makedirs(save_path)
 
     # 设置优化器
-    # meta_opt = optim.SGD(net.parameters(), lr=1e-3, momentum=0.9)# momentum=0.9, #, weight_decay=1e-2
     meta_opt = optim.Adam(net.parameters(), lr=1e-3)
 
     # 运行训练和测试
@@ -127,29 +121,18 @@ def main():
         test_log = []
         for epoch in range(args.epochs):
             train(args, db, net, device, meta_opt, epoch, train_log)
-            # if args.open_maml:
-            #     train(args, db, net, device, meta_opt, epoch, train_log)
             recons, attentions, inner_gt, inter_gt = test(args, db, net, device, meta_opt, epoch, test_log)
-            # plot(log)
             if test_log[-1]["f1"] > best_f1:
                 torch.save(net.state_dict(), f"{save_path}/best_model.pt")
                 np.save(f"{save_path}/best_recons.npy", recons)
                 sum_attentions = attentions.sum(axis=1)
-                # np.save(
-                #     f"{save_path}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy",
-                #     attentions)
+                np.save(
+                    f"{save_path}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy",
+                    attentions)
             if test_log[-1]["f1"] < 0.01 or test_log[-1]["f1"] > 0.99:
                 break
         np.save(f"{save_path}/inner_gts.npy", inner_gt)
         np.save(f"{save_path}/inter_gts.npy", inter_gt)
-
-        # readout graph attention
-        # net.load_state_dict(torch.load(f"{save_path}/best_model.pt", map_location=args.device))
-        # spt_loader, qry_loader = db.next('test')
-        # for x,z,y in qry_loader:
-        #     if y.max()[0]>0.5:
-        #         x = x.to(device)
-        #         attention = net.get_gat_attention(x)
 
     # 记录运行结果
     with open(f"{save_path}/summary.txt", "w") as f:
@@ -207,8 +190,9 @@ def train(args, db, net, device, meta_opt, epoch, log):
                 recons = np.concatenate(recons, axis=0)
                 inner_gt = np.concatenate(inner_gt, axis=0)
                 inter_gt = np.concatenate(inter_gt, axis=0)
-                anomaly_scores = np.sqrt((recons - inner_gt) ** 2) + np.sqrt((pres - inner_gt) ** 2)
+                # anomaly_scores = np.sqrt((recons - inner_gt) ** 2) + np.sqrt((pres - inner_gt) ** 2)
                 # anomaly_scores = np.sqrt((recons - inner_gt) ** 2)
+                anomaly_scores = np.sqrt((pres - inner_gt) ** 2)
                 anomaly_scores = np.mean(anomaly_scores, axis=1)  # 此处使用的是mean，那么前边的损失也需要使用mean！
                 bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=args.confidence,
                                     step_num=int(args.confidence / 0.01),
@@ -267,8 +251,9 @@ def test(args, db, net, device, meta_opt, epoch, log):
         recons = np.concatenate(recons, axis=0)
         inner_gt = np.concatenate(inner_gt, axis=0)
         inter_gt = np.concatenate(inter_gt, axis=0)
-        anomaly_scores = np.sqrt((pres - inner_gt) ** 2) + np.sqrt((recons - inner_gt) ** 2)
+        # anomaly_scores = np.sqrt((pres - inner_gt) ** 2) + np.sqrt((recons - inner_gt) ** 2)
         # anomaly_scores = np.sqrt((recons - inner_gt) ** 2)
+        anomaly_scores = np.sqrt((pres - inner_gt) ** 2)
         anomaly_scores = np.mean(anomaly_scores, axis=1)  # 此处使用的是mean，那么前边的损失也需要使用mean！
         bf_eval = bf_search(anomaly_scores, inter_gt, start=0.01, end=args.confidence,
                             step_num=int(args.confidence / 0.01), verbose=False)
@@ -309,7 +294,8 @@ def spt_forward(row, x, z, y, s, args, model, opt, db, mode="train"):
     #         spt_loss += torch.sqrt(F.mse_loss(spti, xi)) + torch.sqrt(F.mse_loss(pi, zi))
     # else:
     #     spt_loss = torch.sqrt(F.mse_loss(spt_logits, x)) + torch.sqrt(F.mse_loss(preds, z))
-    spt_loss = torch.sqrt(F.mse_loss(spt_logits, row)) + torch.sqrt(F.mse_loss(preds, z))
+    # spt_loss = torch.sqrt(F.mse_loss(spt_logits, row)) + torch.sqrt(F.mse_loss(preds, z))
+    spt_loss = torch.sqrt(F.mse_loss(preds, z))
     opt.step(spt_loss)
     return spt_loss.item()
 
@@ -329,8 +315,9 @@ def qry_forward(x, z, y, args, model, opt, mode="train"):
     y_hat = y.squeeze(dim=1)
     if args.target_dims != None:
         z_hat = z_hat[:, args.target_dims]
-    qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
+    # qry_loss = torch.sqrt((recon - z_hat) ** 2) + torch.sqrt((pre - z_hat) ** 2)
     # qry_loss = torch.sqrt((recon - z_hat) ** 2)
+    qry_loss = torch.sqrt((pre - z_hat) ** 2)
     qry_loss = qry_loss.mean(dim=1)
     # qry_loss = F.mse_loss(qry_loss, y_hat * args.confidence)
     # qry_loss = torch.multiply(qry_loss, y_hat * args.confidence * -1).mean()

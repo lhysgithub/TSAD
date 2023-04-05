@@ -38,12 +38,9 @@ def main():
 
     sum_path = f"output/{args.dataset}/{args.group}/{args.save_dir}/summary.txt"
     if os.path.exists(sum_path):
-        try:
-            f1_ = get_f1_for_maml(sum_path)
-            if args.save_dir != "temp" and 0.99 >= f1_ >= 0.01:
-                return
-        except Exception as e:
-            print("")
+        f1_ = get_f1_for_maml(sum_path)
+        if args.save_dir != "temp" and 0.99 >= f1_ >= 0.01:
+            return
     # if os.path.exists(f"output/{args.dataset}/{args.group}/{args.save_dir}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy"):
     #     return
 
@@ -135,9 +132,9 @@ def main():
                 torch.save(net.state_dict(), f"{save_path}/best_model.pt")
                 np.save(f"{save_path}/best_recons.npy", recons)
                 sum_attentions = attentions.sum(axis=1)
-                # np.save(
-                #     f"{save_path}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy",
-                #     attentions)
+                np.save(
+                    f"{save_path}/best_attentions_{args.open_maml}_data_enhancement_{args.using_labeled_val}_semi_all.npy",
+                    attentions)
             if test_log[-1]["f1"] < 0.01 or test_log[-1]["f1"] > 0.99:
                 break
         np.save(f"{save_path}/inner_gts.npy", inner_gt)

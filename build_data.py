@@ -29,20 +29,22 @@ class TimeDataset(Dataset):
     def process(self, data, labels):
         x_arr, y_arr = [], []
         labels_arr = []
-        slide_win, slide_stride, pre_term = [self.config[k] for k in ['slide_win', 'slide_stride', 'pre_term']]
+        # slide_win, slide_stride, pre_term = [self.config[k] for k in ['slide_win', 'slide_stride', 'pre_term']]
+        slide_win, slide_stride, pre_term = self.config.slide_win,self.config.slide_stride,self.config.pre_term
         is_train = self.mode == 'train'
         total_time_len, node_num = data.shape
 
         # 如果为训练数据集，则返回窗口起始位置到数据集末尾，步长为slide_stride的滑窗索引，如果为其他数据集则返回步长为1的滑窗索引
         # rang = range(slide_win, total_time_len-pre_term+1, slide_stride) if is_train else range(slide_win, total_time_len-pre_term+1)
         # rang = range(slide_win, total_time_len - slide_stride) if is_train else range(slide_win, total_time_len - slide_stride, slide_stride)
+        # rang = range(slide_win, total_time_len - slide_stride) if is_train else range(slide_win,
+        #                                                                               total_time_len - slide_stride)
         rang = range(slide_win, total_time_len - slide_stride) if is_train else range(slide_win,
-                                                                                      total_time_len - slide_stride)
-
+                                                                                      total_time_len - slide_stride,slide_stride)
         for i in rang:
             ft = data[i - slide_win:i,:]  # 0~14条
             tar = data[i+pre_term-1, :]  # 第15条
-            if self.config["condition_control"]:
+            if self.config.condition_control:
             # add future limited todo de-comment for predict future with control
                 tar_limited = np.expand_dims(tar, axis=0)
                 tar_limited_repeat = np.repeat(tar_limited, len(ft), axis=0)[:, -1]
@@ -99,8 +101,8 @@ def data_load(config):
         'pre_term': config.pre_term,
     }
 
-    train_dataset = TimeDataset(train, train_label, edge_index, mode='train', config=cfg)
-    test_dataset = TimeDataset(test, test_label, edge_index, mode='test', config=cfg)
+    train_dataset = TimeDataset(train, train_label, edge_index, mode='train', config=config)
+    test_dataset = TimeDataset(test, test_label, edge_index, mode='test', config=config)
     test_dataloader = DataLoader(test_dataset, batch_size=config.batch,shuffle=False, num_workers=0)
     train_dataloader = DataLoader(train_dataset, batch_size=config.batch, shuffle=True, num_workers=0)
 
@@ -118,8 +120,8 @@ def data_load_from_exist_np(config):
         'condition_control': config.condition_control
     }
 
-    train_dataset = TimeDataset(train, train_label, edge_index, mode='train', config=cfg)
-    test_dataset = TimeDataset(test, test_label, edge_index, mode='test', config=cfg)
+    train_dataset = TimeDataset(train, train_label, edge_index, mode='train', config=config)
+    test_dataset = TimeDataset(test, test_label, edge_index, mode='test', config=config)
     test_dataloader = DataLoader(test_dataset, batch_size=config.batch, shuffle=False, num_workers=0)
     train_dataloader = DataLoader(train_dataset, batch_size=config.batch, shuffle=True, num_workers=0)
 

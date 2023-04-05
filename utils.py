@@ -429,17 +429,25 @@ def get_f1(file_name):
 
 
 def get_key_from_bf_result(file_name, key):
-    with open(file_name) as f:
-        summary = json.load(f)
-        f1 = summary["bf_result"][key]
-    return f1
+    try:
+        with open(file_name) as f:
+            summary = json.load(f)
+            f1 = summary["bf_result"][key]
+        return f1
+    except Exception as e:
+        print(e)
+        return 0.0
 
 
 def get_key_for_maml(file_name, key):
-    with open(file_name) as f:
-        summary = json.load(f)
-        f1 = summary[key]
-    return f1
+    try:
+        with open(file_name) as f:
+            summary = json.load(f)
+            f1 = summary[key]
+        return f1
+    except Exception as e:
+        print(e)
+        return 0.0
 
 
 def get_f1_for_maml(file_name):
@@ -731,6 +739,12 @@ def compute_std_mse(data1, data2):
     return predicts_loss
 
 
+def get_std_data(data1, data2):
+    d1, scaler = normalize_data(data1, scaler=None)
+    d2, _ = normalize_data(data2, scaler=scaler)
+    return d1,d2
+
+
 def up_down_mse(data1, data2, scope_length=12):
     data1_max = []
     data1_min = []
@@ -758,3 +772,35 @@ def up_down_mse_for_hour(data1, data2, scope_length=12):
     down_loss = np.sqrt((np.array(data1_min) - np.array(data2_min)) ** 2).mean()
     loss = up_loss + down_loss
     return loss
+
+
+def get_anormal_dimensions(args):
+    anormal = []
+    file_name = f"data/SMD/interpretation_label/machine-{args.group}.txt"
+    with open(file_name) as f:
+        lines = f.readlines()
+        for line in lines:
+            temp_list = line.split(":")[1].split(",")
+            anormal.append([int(i) for i in temp_list])
+    return anormal
+
+
+def normalization_axis0(data):
+    _range = np.max(data,axis=0) - np.min(data,axis=0)
+    return (data - np.min(data,axis=0)) / _range
+
+
+def normalization_axis0_st(data):
+    return (data - np.mean(data))/np.std(data)
+
+
+def get_attention_from_model(loader, device, model):
+    device = "cuda" if device and torch.cuda.is_available() else "cpu"
+    attentions = []
+    with torch.no_grad():
+        for x, y in loader:
+            x = x.to(device)
+            a = model.get_gat_attention(x)
+            attentions.append(a.detach().cpu().numpy())
+    attentions = np.concatenate(attentions, axis=0)
+    return attentions

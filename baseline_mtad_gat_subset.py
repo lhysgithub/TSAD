@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from args import get_parser
 from utils import *
-from mtad_gat import MTAD_GAT
+from mtad_gat_norm import MTAD_GAT_norm
 from prediction import Predictor
 from training import Trainer
 
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     index = args.group[2:]
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda_device
     args_summary = str(args.__dict__)
-    args.save_dir = "baseline_mtad_gat"
+    # args.save_dir = "baseline_mtad_gat"
     print(args_summary)
 
     output_path = f'output/{dataset}/{args.group}'
@@ -48,11 +48,38 @@ if __name__ == "__main__":
     if not os.path.exists(save_path):
         os.mkdir(save_path)
 
+    sum_path = f"output/{args.dataset}/{args.group}/{args.save_dir}/summary.txt"
+    print(sum_path)
+    if os.path.exists(sum_path):
+        try:
+            f1_ = get_key_from_bf_result(sum_path,"f1")
+            if args.save_dir != "temp" and 0.99 >= f1_ >= 0.01:
+                print(f"f1: {f1_}")
+                exit()
+        except Exception as e:
+            print(e)
+
+    if args.removed_variate == 0:
+        temp = x_train.T[args.removed_variate+1:]
+        x_train = temp.T
+        temp = x_test.T[args.removed_variate+1:]
+        x_test = temp.T
+    elif 0 < args.removed_variate < 37:
+        temp = np.concatenate([x_train.T[:args.removed_variate],x_train.T[args.removed_variate+1:]], axis=0)
+        x_train = temp.T
+        temp = np.concatenate([x_test.T[:args.removed_variate],x_test.T[args.removed_variate + 1:]], axis=0)
+        x_test = temp.T
+    elif args.removed_variate == 37:
+        temp = x_train.T[:args.removed_variate]
+        x_train = temp.T
+        temp = x_test.T[:args.removed_variate]
+        x_test = temp.T
     x_train = torch.from_numpy(x_train).float()
     x_test = torch.from_numpy(x_test).float()
     n_features = x_train.shape[1]
 
     target_dims = get_target_dims(dataset)
+    # target_dims = None
     if target_dims is None:
         out_dim = n_features
         print(f"Will forecast and reconstruct all {n_features} input features")
@@ -70,7 +97,7 @@ if __name__ == "__main__":
         train_dataset, batch_size, val_split, shuffle_dataset, test_dataset=test_dataset
     )
 
-    model = MTAD_GAT(
+    model = MTAD_GAT_norm(
         n_features,
         window_size,
         out_dim,
@@ -110,6 +137,11 @@ if __name__ == "__main__":
         log_tensorboard,
         args_summary
     )
+
+    init_train_loss = trainer.evaluate(train_loader)[2]
+    if (init_train_loss!=init_train_loss):
+        print(init_train_loss)
+        exit()
 
     trainer.fit(train_loader, val_loader)
 

@@ -15,6 +15,9 @@ def str2bool(v):
 def get_parser():
     parser = argparse.ArgumentParser()
 
+    # -- Empircal ---
+    parser.add_argument('--removed_variate', type=int, default=38)
+
     # -- SemDC ---
     parser.add_argument('--open_maml', type=str2bool, default=False)
     parser.add_argument('--norm_model', type=str, default="norm")
@@ -24,8 +27,8 @@ def get_parser():
     parser.add_argument("--r2", type=float, default=0.5)
 
     # -- Data params ---
-    parser.add_argument("--dataset", type=str.upper, default="BATADAL")
-    parser.add_argument("--group", type=str, default="A2", help="Required for SMD dataset. <group_index>-<index>")
+    parser.add_argument("--dataset", type=str.upper, default="SMD")
+    parser.add_argument("--group", type=str, default="1-4", help="Required for SMD dataset. <group_index>-<index>")
     parser.add_argument('--n_features', type=int, help='n_features', default=38)
     parser.add_argument("--normalize", type=str2bool, default=True)
     parser.add_argument("--spec_res", type=str2bool, default=False)
@@ -44,7 +47,7 @@ def get_parser():
     parser.add_argument('--lr', help='learing rate', type=int, default=1e-3)
 
     # -- ZX ---
-    parser.add_argument("--condition_control", type=str2bool, default=True)
+    parser.add_argument("--condition_control", type=str2bool, default=False)
     parser.add_argument('--pre_term', help='pre_term', type=int, default=1)
     parser.add_argument('--pre_gap', help='pre_gap', type=int, default=1)
 
@@ -69,15 +72,15 @@ def get_parser():
 
     # --- Train params ---
     parser.add_argument("--retrain", type=str2bool, default=False)
-    parser.add_argument('--epoch', help='train epoch', type=int, default=30)
-    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument('--epoch', help='train epoch', type=int, default=1)
+    parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--val_split", type=float, default=0.1)
     parser.add_argument("--bs", type=int, default=32)
     parser.add_argument("--init_lr", type=float, default=1e-3)
     parser.add_argument("--shuffle_dataset", type=str2bool, default=True)
     parser.add_argument("--dropout", type=float, default=0.3)
     parser.add_argument("--use_cuda", type=str2bool, default=True)
-    parser.add_argument("--cuda_device", type=str, default="0")
+    parser.add_argument("--cuda_device", type=str, default="1")
     parser.add_argument("--print_every", type=int, default=1)
     parser.add_argument("--log_tensorboard", type=str2bool, default=True)
 

@@ -23,10 +23,10 @@ for i in tqdm(relation):
     filtered_outband = outband.loc[outband.iloc[:, 5] == relation[i]]
     if len(filtered_inband) > 0 and len(filtered_outband) > 0:
         # 根据"开始时间"合并inband和outband数据，并按照"开始时间"排序
-        # new_inband = filtered_inband.iloc[:, [0, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16]]
-        new_inband = filtered_inband.iloc[:, [0, 6]]
-        # new_outband = filtered_outband.iloc[:, [0, 6, 7]]
-        new_outband = filtered_outband.iloc[:, [0, 6]]
+        new_inband = filtered_inband.iloc[:, [0, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16]]
+        # new_inband = filtered_inband.iloc[:, [0, 6]]
+        new_outband = filtered_outband.iloc[:, [0, 6, 7]]
+        # new_outband = filtered_outband.iloc[:, [0, 6]]
         merged_data = pd.merge(new_inband, new_outband, on=list(new_inband)[0])
         merged_data.iloc[:, 0] = pd.to_datetime(merged_data.iloc[:, 0])
         merged_data = merged_data.sort_values(by=list(merged_data)[0], ascending=True)  # sort_values,merge 给列下标是否可以？达没

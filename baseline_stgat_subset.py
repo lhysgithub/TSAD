@@ -87,7 +87,7 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda_device
-    args.save_dir = "baseline_stgat"
+    # args.save_dir = "baseline_stgat"
 
     # 设置随机种子
     torch.manual_seed(args.seed)
@@ -98,9 +98,44 @@ def main():
     # 设置运行的GPU
     device = torch.device('cuda')
     args.device = device
+    print(args)
+
+    sum_path = f"output/{args.dataset}/{args.group}/{args.save_dir}/summary.txt"
+    print(f"{sum_path}")
+    if os.path.exists(sum_path):
+        try:
+            f1_ = get_key_for_maml(sum_path, "f1")
+            if args.save_dir != "temp" and 0.999 >= f1_ >= 0.001:
+                print(f"f1: {f1_}")
+                exit()
+        except Exception as e:
+            print(e)
+
+    # 加载数据
+    # train_dataloader, test_dataloader = data_load(args)
+    (x_train, train_label), (x_test, test_label) = get_data_from_source(args)
+    if args.removed_variate == 0:
+        temp = x_train.T[args.removed_variate+1:]
+        x_train = temp.T
+        temp = x_test.T[args.removed_variate+1:]
+        x_test = temp.T
+    elif 0 < args.removed_variate < 37:
+        temp = np.concatenate([x_train.T[:args.removed_variate],x_train.T[args.removed_variate+1:]], axis=0)
+        x_train = temp.T
+        temp = np.concatenate([x_test.T[:args.removed_variate],x_test.T[args.removed_variate + 1:]], axis=0)
+        x_test = temp.T
+    elif args.removed_variate == 37:
+        temp = x_train.T[:args.removed_variate]
+        x_train = temp.T
+        temp = x_test.T[:args.removed_variate]
+        x_test = temp.T
+    (args.train, args.train_label), (args.test, args.test_label) = (x_train, train_label), (x_test, test_label)
+    train_dataloader, test_dataloader = data_load_from_exist_np(args)
+    config = args
 
     # 设置数据集的维度和拟合的目标维度
-    args.n_features = get_dim(args)
+    # args.n_features = get_dim(args)
+    args.n_features = args.train.shape[1]
     target_dims = get_target_dims(args.dataset)
     if target_dims is None:
         out_dim = args.n_features
@@ -113,11 +148,6 @@ def main():
         out_dim = len(target_dims)
     args.target_dims = target_dims
     args.out_dim = out_dim
-    print(args)
-
-    # 加载数据
-    train_dataloader, test_dataloader = data_load(args)
-    config = args
 
     # 实例化模型
     stgat = STGAT(
