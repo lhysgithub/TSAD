@@ -8,6 +8,7 @@ import torch
 import json
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
+from sklearn import metrics
 
 
 def normalize_data(data, scaler=None):
@@ -18,6 +19,7 @@ def normalize_data(data, scaler=None):
     if scaler is None:
         scaler = MinMaxScaler()
         scaler.fit(data)
+        # scaler.data_range_
     data = scaler.transform(data)
     print("Data normalized")
 
@@ -74,11 +76,14 @@ def get_dataset_np(config):
         return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
     elif "SMD" in dataset:
         variable = config.group
-        train_df = pd.read_csv(f'./data/SMD/train/machine-{variable}.txt', header=None, sep=",", dtype=np.float32)
-        test_df = pd.read_csv(f'./data/SMD/test/machine-{variable}.txt', header=None, sep=",", dtype=np.float32)
+        train_df = pd.read_csv(
+            f'./data/SMD/train/machine-{variable}.txt', header=None, sep=",", dtype=np.float32)
+        test_df = pd.read_csv(
+            f'./data/SMD/test/machine-{variable}.txt', header=None, sep=",", dtype=np.float32)
 
         # Get test anomaly labels
-        test_labels = np.genfromtxt(f'./data/SMD/test_label/machine-{variable}.txt', dtype=np.float32, delimiter=',')
+        test_labels = np.genfromtxt(
+            f'./data/SMD/test_label/machine-{variable}.txt', dtype=np.float32, delimiter=',')
         return train_df.to_numpy(), test_df.to_numpy(), test_labels
     elif "SMAP" in dataset:
         variable = config.group
@@ -87,7 +92,8 @@ def get_dataset_np(config):
         test_label = np.zeros(len(test), dtype=np.float32)
 
         # Set test anomaly labels from files
-        labels = pd.read_csv(f'./data/SMAP/labeled_anomalies.csv', sep=",", index_col="chan_id")
+        labels = pd.read_csv(
+            f'./data/SMAP/labeled_anomalies.csv', sep=",", index_col="chan_id")
         label_str = labels.loc[variable, "anomaly_sequences"]
         label_list = json.loads(label_str)
         for i in label_list:
@@ -100,7 +106,8 @@ def get_dataset_np(config):
         test_label = np.zeros(len(test), dtype=np.float32)
 
         # Set test anomaly labels from files
-        labels = pd.read_csv(f'./data/SMAP/labeled_anomalies.csv', sep=",", index_col="chan_id")
+        labels = pd.read_csv(
+            f'./data/SMAP/labeled_anomalies.csv', sep=",", index_col="chan_id")
         label_str = labels.loc[variable, "anomaly_sequences"]
         label_list = json.loads(label_str)
         for i in label_list:
@@ -157,8 +164,11 @@ def get_dataset_np(config):
     elif "ZX" in dataset:
         variable = config.group
         # dim = 13
-        train_df = pd.read_csv(f'./data/ZX/train/{variable}.csv', sep=",", header=None, skiprows=1).fillna(0)
-        test_df = pd.read_csv(f'./data/ZX/test/{variable}.csv', sep=",", header=None, skiprows=1).fillna(0)
+        train_df = pd.read_csv(
+            f'./data/ZX/train/{variable}.csv', sep=",", header=None, skiprows=1).fillna(0)
+        test_df = pd.read_csv(
+            f'./data/ZX/test/{variable}.csv', sep=",", header=None, skiprows=1).fillna(0)
+        aux_dim = len(list(train_df)) - 1
         train_df.drop(0, axis=1, inplace=True)
         test_df.drop(0, axis=1, inplace=True)
         dim = len(list(train_df)) - 1
@@ -166,8 +176,8 @@ def get_dataset_np(config):
 
         # Get test anomaly labels
         test_label = test_df.iloc[:, dim]
-        train_df.drop(dim, axis=1, inplace=True)
-        test_df.drop(dim, axis=1, inplace=True)
+        train_df.drop(aux_dim, axis=1, inplace=True)
+        test_df.drop(aux_dim, axis=1, inplace=True)
         return train_df.to_numpy(), test_df.to_numpy(), test_label.to_numpy()
 
 
@@ -202,14 +212,16 @@ def get_dim(args):
 
 def get_data_from_source(args, normalize=True):
     train_data, test_data, test_label = get_dataset_np(args)
+    tt = test_data.T
     if normalize:
         train_data, scaler = normalize_data(train_data, scaler=None)
         test_data, _ = normalize_data(test_data, scaler=scaler)
         args.scaler = scaler
-
+    tt = test_data.T
     print("train set shape: ", train_data.shape)
     print("test set shape: ", test_data.shape)
-    print("test set label shape: ", None if test_label is None else test_label.shape)
+    print("test set label shape: ",
+          None if test_label is None else test_label.shape)
     train_label = np.zeros(len(train_data), dtype=np.float32)
     return (train_data, train_label), (test_data, test_label)
 
@@ -287,7 +299,8 @@ def create_data_loaders(train_dataset, batch_size, val_split=0.1, shuffle=True, 
     train_loader, val_loader, test_loader = None, None, None
     if val_split == 0.0:
         print(f"train_size: {len(train_dataset)}")
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle)
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=batch_size, shuffle=shuffle)
 
     else:
         dataset_size = len(train_dataset)
@@ -300,14 +313,17 @@ def create_data_loaders(train_dataset, batch_size, val_split=0.1, shuffle=True, 
         train_sampler = SubsetRandomSampler(train_indices)
         valid_sampler = SubsetRandomSampler(val_indices)
 
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
-        val_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler=valid_sampler)
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=batch_size, sampler=train_sampler)
+        val_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=batch_size, sampler=valid_sampler)
 
         print(f"train_size: {len(train_indices)}")
         print(f"validation_size: {len(val_indices)}")
 
     if test_dataset is not None:
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        test_loader = DataLoader(
+            test_dataset, batch_size=batch_size, shuffle=False)
         print(f"test_size: {len(test_dataset)}")
 
     return train_loader, val_loader, test_loader
@@ -593,7 +609,8 @@ def sample_input_by_bool(select, x_train):
                 temp_x_train = np.zeros_like(xi)
                 first = 1
             else:
-                temp_x_train = np.concatenate((temp_x_train, np.zeros_like(xi)), axis=1)
+                temp_x_train = np.concatenate(
+                    (temp_x_train, np.zeros_like(xi)), axis=1)
     return temp_x_train
 
 
@@ -742,7 +759,7 @@ def compute_std_mse(data1, data2):
 def get_std_data(data1, data2):
     d1, scaler = normalize_data(data1, scaler=None)
     d2, _ = normalize_data(data2, scaler=scaler)
-    return d1,d2
+    return d1, d2
 
 
 def up_down_mse(data1, data2, scope_length=12):
@@ -757,8 +774,10 @@ def up_down_mse(data1, data2, scope_length=12):
         data1_min.append(np.min(data1_temp_set, axis=1))
         data2_max.append(np.max(data2_temp_set, axis=1))
         data2_min.append(np.min(data2_temp_set, axis=1))
-    up_loss = np.sqrt((np.array(data1_max) - np.array(data2_max)) ** 2).mean(axis=1)
-    down_loss = np.sqrt((np.array(data1_min) - np.array(data2_min)) ** 2).mean(axis=1)
+    up_loss = np.sqrt(
+        (np.array(data1_max) - np.array(data2_max)) ** 2).mean(axis=1)
+    down_loss = np.sqrt(
+        (np.array(data1_min) - np.array(data2_min)) ** 2).mean(axis=1)
     loss = up_loss + down_loss
     return loss
 
@@ -769,7 +788,8 @@ def up_down_mse_for_hour(data1, data2, scope_length=12):
     data2_max = np.max(data2, axis=1)
     data2_min = np.min(data2, axis=1)
     up_loss = np.sqrt((np.array(data1_max) - np.array(data2_max)) ** 2).mean()
-    down_loss = np.sqrt((np.array(data1_min) - np.array(data2_min)) ** 2).mean()
+    down_loss = np.sqrt(
+        (np.array(data1_min) - np.array(data2_min)) ** 2).mean()
     loss = up_loss + down_loss
     return loss
 
@@ -786,8 +806,8 @@ def get_anormal_dimensions(args):
 
 
 def normalization_axis0(data):
-    _range = np.max(data,axis=0) - np.min(data,axis=0)
-    return (data - np.min(data,axis=0)) / _range
+    _range = np.max(data, axis=0) - np.min(data, axis=0)
+    return (data - np.min(data, axis=0)) / _range
 
 
 def normalization_axis0_st(data):
@@ -804,3 +824,68 @@ def get_attention_from_model(loader, device, model):
             attentions.append(a.detach().cpu().numpy())
     attentions = np.concatenate(attentions, axis=0)
     return attentions
+
+
+def plot_multi_curve(args, save_path, shape, file_name, target_dim, terms, model_name):
+    target = "Power" if target_dim == 10 else "CPU Usage"
+    plt.cla()
+    if model_name == "stgat":  # for stgat
+        predicts = np.load(
+            f"{save_path}/best_predict_{target_dim}_hour.npy")[:, target_dim, :].squeeze()
+        inner_gts = np.load(
+            f"{save_path}/inner_gts_{target_dim}_hour.npy")[:, target_dim, :].squeeze()
+    elif model_name == "arima":  # for arima
+        predicts = np.load(
+            f"{save_path}/best_predict_{target_dim}_CPU Usage_{12}_hour.npy").squeeze()
+        inner_gts = np.load(
+            f"{save_path}/inner_gts_{target_dim}_CPU Usage_{12}_hour.npy").squeeze()
+
+    # predicts,inner_gts = get_std_data(predicts, inner_gts)
+    predicts = predicts[:, terms]
+    inner_gts_p = inner_gts[:, terms]
+    predict_mean = predicts.mean(axis=1)
+    inner_gt_mean = inner_gts.mean(axis=1)
+    predict_max = predicts.max(axis=1)
+    inner_gt_max = inner_gts.max(axis=1)
+    predict_min = predicts.min(axis=1)
+    inner_gt_min = inner_gts.min(axis=1)
+    x = range(len(predict_mean))
+    plt.plot(x, inner_gt_mean, "b", label=f"{target}")
+    plt.plot(x, predict_mean, "r", label=f"predict_{target}")
+    plt.fill_between(x, predict_min, predict_max, facecolor='r', alpha=0.2)
+    plt.fill_between(x, inner_gt_min, inner_gt_max, facecolor='b', alpha=0.2)
+    plt.legend()
+    plt.savefig(
+        f"{save_path}/{file_name}_{target_dim}.pdf")
+    print(
+        f"save files {save_path}/{file_name}_{target_dim}.pdf")
+    # scope_mse = up_down_mse_for_hour(predicts, inner_gts)
+    # point_mse = metrics.mean_squared_error(predicts.ravel(), inner_gts_p.ravel())
+    # print(f"point_mse: {point_mse} scope_mse: {scope_mse}")
+    # return point_mse,scope_mse
+
+
+def evaluate_multi_curve(args, save_path, shape, file_name, target_dim, terms, model_name):
+    target = "Power" if target_dim == 10 else "CPU Usage"
+    plt.cla()
+    plt.figure(figsize=(8 * shape, 6 * shape))
+    if model_name == "stgat":  # for stgat
+        predicts = np.load(
+            f"{save_path}/best_predict_{target_dim}_hour.npy")[:, target_dim, :].squeeze()
+        inner_gts = np.load(
+            f"{save_path}/inner_gts_{target_dim}_hour.npy")[:, target_dim, :].squeeze()
+    elif model_name == "arima":  # for arima
+        predicts = np.load(
+            f"{save_path}/best_predict_{target_dim}_CPU Usage_{12}_hour.npy").squeeze()
+        inner_gts = np.load(
+            f"{save_path}/inner_gts_{target_dim}_CPU Usage_{12}_hour.npy").squeeze()
+
+    predicts, inner_gts = get_std_data(predicts, inner_gts)
+    predicts = predicts[:, terms]
+    inner_gts_p = inner_gts[:, terms]
+
+    scope_mse = up_down_mse_for_hour(predicts, inner_gts)
+    point_mse = metrics.mean_squared_error(
+        predicts.ravel(), inner_gts_p.ravel())
+    print(f"point_mse: {point_mse} scope_mse: {scope_mse}")
+    return point_mse, scope_mse

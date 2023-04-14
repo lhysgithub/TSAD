@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-'''
-@Describe :
-@Author : James Jun
-@Date :
-'''
+
 import argparse
 import numpy as np
 import random

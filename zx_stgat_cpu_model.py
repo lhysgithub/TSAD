@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-'''
-@Describe :
-@Author : James Jun
-@Date :
-'''
 import argparse
 import numpy as np
 import random
@@ -93,23 +88,7 @@ def main(args):
     config = args
 
     stgat = args.stgat
-
-    # # 实例化模型
-    # stgat = STGAT(
-    #     config.n_features,
-    #     config.slide_win,
-    #     config.out_dim,
-    #     kernel_size=config.kernel_size,
-    #     layer_numb=config.layer_numb,
-    #     lstm_n_layers=config.lstm_n_layers,
-    #     lstm_hid_dim=config.lstm_hid_dim,
-    #     recon_n_layers=config.recon_n_layers,
-    #     recon_hid_dim=config.recon_hid_dim,
-    #     dropout=config.dropout,
-    #     alpha=config.alpha
-    # ).to(config.device)
-    # # think: 每日训练模型时初始化，还是一直训练一个模型？思考ARIMA的话，是每次训练时都初始化
-
+    
     # 设置工作目录
     save_path = f"output/{args.dataset}/{args.group}/{args.save_dir}"
     if not os.path.exists(save_path):
@@ -120,7 +99,8 @@ def main(args):
     best_predict = []
     gt = []
     for epoch in range(config.epoch):
-        train_loss = train(config, stgat, config.train_dataloader)  # done: 现在的dataloader传入的传入的不对，需要修正
+        if not config.stop_train:
+            train_loss = train(config, stgat, config.train_dataloader)  # done: 现在的dataloader传入的传入的不对，需要修正
         recons, predicts, test_data, test_label = test(config, stgat, config.test_dataloader)
         recons = np.concatenate(recons, axis=0)
         predicts = np.concatenate(predicts, axis=0)
@@ -188,9 +168,12 @@ if __name__ == '__main__':
     args.epoch = 30
     predict_h_all = []
     gt_h_all = []
-    args.slide_stride = 12
+    args.slide_win = 12
+    # args.slide_stride = 12
+    args.slide_stride = 24
+    args.max_pre_term = 12
     pre_gap = args.pre_gap
-    pre_times = int(args.slide_stride / pre_gap)
+    pre_times = int(args.max_pre_term / pre_gap)
 
     # 实例化模型
     stgat = STGAT(
@@ -206,17 +189,22 @@ if __name__ == '__main__':
         dropout=args.dropout,
         alpha=args.alpha
     ).to(args.device)
-    # think: 每日训练模型时初始化，还是一直训练一个模型？思考ARIMA的话，是每次训练时都初始化
+    # think: 每日训练模型时初始化，还是一直训练一个模型？思考ARIMA的话，是每次训练时都初始化。但是STGAT这种神经网络模型需要更多的训练数据，所以需要持续学习。
     args.stgat = stgat
-
+    day = 0
     for j in tqdm(range(train_scope * 2, len(data), train_scope)):
         (args.train, args.train_label), (args.test, args.test_label) = (data[j - train_scope * 2:j - train_scope],
                                                                         labels[j - train_scope * 2:j - train_scope]), (
                                                                            data[j - train_scope:j],
                                                                            labels[j - train_scope:j])
+        day += 1
+        if day > args.stop_train_days:
+            args.stop_train = True
+        else:
+            args.stop_train = False
         predict_h_day = []
         gt_h_day = []
-        for pre_t in range(1, args.slide_stride + 1, pre_gap):  # 预测未来一小时内三个时刻的值
+        for pre_t in range(1, args.max_pre_term + 1, args.pre_gap):  # 预测未来一小时12个时刻的值
             args.pre_term = pre_t  # 指定预测间隔
             args.train_dataloader, args.test_dataloader = data_load_from_exist_np(args)
             loss, predict_h, gt_h = main(args)
@@ -226,20 +214,21 @@ if __name__ == '__main__':
         predict_h_day_nd = np.array(predict_h_day)  # predict_h_day_nd.shape = (pre_times,24,k)
         gt_h_day_nd = np.array(gt_h_day)
         shape = predict_h_day_nd.shape
+        if args.only_plot_untrain:
+            if day <= args.stop_train_days:
+                continue
         predict_h_all.append(predict_h_day_nd.transpose(1, 2, 0))  # predict_h_all.shape = (days,24,k,pre_times)
         gt_h_all.append(gt_h_day_nd.transpose(1, 2, 0))
         print(f"predict_h_day_nd.shape: {predict_h_day_nd.shape}")
     scope_predicts = np.concatenate(predict_h_all, axis=0)
     scope_test_data = np.concatenate(gt_h_all, axis=0)
-    scope_mse = up_down_mse_for_hour(scope_predicts[:, target_dims[0], :].squeeze(),
-                                     scope_test_data[:, target_dims[0], :].squeeze())
-    point_mse = metrics.mean_squared_error(scope_predicts.ravel(), scope_test_data.ravel())
     # done: change the position of saving predict and ground truth
     save_path = f"output/{args.dataset}/{args.group}/{args.save_dir}"
     np.save(f"{save_path}/inner_gts_{args.target_dims[0]}_hour_{pre_gap}.npy", scope_test_data)
     np.save(f"{save_path}/best_predict_{args.target_dims[0]}_hour_{pre_gap}.npy", scope_predicts)
     print(f"scope_test_data.shape: {scope_test_data.shape}")
-    print(f"scope_mse: {scope_mse}")
+    plot_multi_curve(args, save_path, 2, f"zx_stgat_hour_{args.condition_control}", args.target_dims[0], list(range(0,12,1)),"stgat")
+    point_mse,scope_mse = evaluate_multi_curve(args, save_path, 2, f"zx_stgat_hour_{args.condition_control}", args.target_dims[0], list(range(0,12,1)),"stgat")
     results = {"scope_mse": float(scope_mse), "point_mse": float(point_mse)}
     if args.condition_control:
         with open(f'{save_path}/results_scope_{pre_gap}.json', "w") as f:
@@ -249,4 +238,4 @@ if __name__ == '__main__':
             json.dump(results, f, indent=2)
     # print(args)
 
-# todo 将功率限制的label换成比例，然后再看看效果
+    

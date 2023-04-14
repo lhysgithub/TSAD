@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-'''
-@Describe :
-@Author : James Jun
-@Date : 
-'''
+
 import torch
 import torch.nn as nn
 
@@ -54,9 +50,9 @@ class STGAT(nn.Module):
         self.n_features = n_features
 
         self.input_1 = InputLayer(n_features, 1)
-        # if config.condition_control:
-        # self.input_2 = InputLayer(n_features, 3)
         self.input_2 = InputLayer(n_features, 5)
+        # if config.condition_control:
+            # self.input_2 = InputLayer(n_features, 3)
         self.input_3 = InputLayer(n_features, 7)
 
         for i in range(layer_numb):

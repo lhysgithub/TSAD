@@ -10,6 +10,8 @@ output/
 licences/
 analysis/
 source_data/
+.vscode/
+
 
 # C extensions
 *.so

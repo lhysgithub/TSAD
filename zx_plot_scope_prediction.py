@@ -4,10 +4,7 @@ from args import *
 from sklearn import metrics
 from utils import *
 
-save_path = ""
-
-
-def plot_multi_curve(shape, file_name, target_dim,terms):
+def plot_multi_curve(save_path,shape, file_name, target_dim,terms):
     target = "Power" if target_dim == 10 else "CPU Usage"
     plt.cla()
     plt.figure(figsize=(8 * shape, 6 * shape))
@@ -46,15 +43,15 @@ def main():
     args.dataset = "ZX"
     args.group = "computer-b0503-01"
     print(args)
-    global save_path
     # dir = "multi_dimensions"
-    dir = "multi_dimensions_continous_train"
-    args.condition_control = False
-    args.save_dir = f"{dir}_{args.condition_control}"
+    args.save_dir = "temp"
+    # dir = "multi_dimensions_continous_train"
+    # args.condition_control = True
+    # args.save_dir = f"{dir}_{args.condition_control}"
     save_path = f"output/{args.dataset}/{args.group}/{args.save_dir}"
     print(save_path)
     target_dim = 0
-    plot_multi_curve(2, f"zx_stgat_hour_{dir}_{args.condition_control}", target_dim, list(range(0,12,1)))
+    plot_multi_curve(save_path, 2, f"zx_stgat_hour_{args.save_dir}_{args.condition_control}", target_dim, list(range(0,12,1)))
     # plot_multi_curve(2, f"zx_arima_hour", target_dim, list(range(0, 12,1)))
 
     # np.array(list(range(0,12)),dtype=np.int32)

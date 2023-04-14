@@ -139,10 +139,11 @@ predicts = []
 prediction_step =12
 tts = []
 pres = []
+slide_window = 12
 # for i in tqdm(range(100, len(test), prediction_step)):
 for j in tqdm(range(0, len(test), 288)):
-    for i in range(j+100,j+288,prediction_step):
-        test_ = test[i - 100:i]
+    for i in range(j+slide_window,j+288,prediction_step):
+        test_ = test[i - slide_window:i]
         tt = test[i:i+prediction_step]
         if i+prediction_step > len(test):
             continue

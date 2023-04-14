@@ -28,16 +28,19 @@ def get_parser():
 
     # -- Data params ---
     parser.add_argument("--dataset", type=str.upper, default="SMD")
-    parser.add_argument("--group", type=str, default="1-4", help="Required for SMD dataset. <group_index>-<index>")
-    parser.add_argument('--n_features', type=int, help='n_features', default=38)
+    parser.add_argument("--group", type=str, default="1-4",
+                        help="Required for SMD dataset. <group_index>-<index>")
+    parser.add_argument('--n_features', type=int,
+                        help='n_features', default=38)
     parser.add_argument("--normalize", type=str2bool, default=True)
     parser.add_argument("--spec_res", type=str2bool, default=False)
     parser.add_argument("--save_dir", type=str, default="temp")
 
     # stgat
     parser.add_argument("--lookback", type=int, default=100)
-    parser.add_argument('--slide_win', help='slide_win', type=int, default=100)
-    parser.add_argument('--slide_stride', help='slide_stride', type=int, default=1)
+    parser.add_argument('--slide_win', help='slide_win', type=int, default=288)
+    parser.add_argument(
+        '--slide_stride', help='slide_stride', type=int, default=1)
     # STGAT layers
     parser.add_argument("--layer_numb", type=int, default=2)
     # LSTM layer
@@ -47,7 +50,17 @@ def get_parser():
     parser.add_argument('--lr', help='learing rate', type=int, default=1e-3)
 
     # -- ZX ---
-    parser.add_argument("--condition_control", type=str2bool, default=False)
+    parser.add_argument("--condition_control", type=str2bool, default=True)
+    parser.add_argument("--only_variation_time", type=str2bool, default=False)
+    parser.add_argument("--only_plot_untrain", type=str2bool, default=False)
+    parser.add_argument("--stop_train", type=str2bool, default=False)
+    parser.add_argument("--entity_wised_model", type=str2bool, default=False)
+    parser.add_argument("--cross_entity", type=str2bool, default=False)
+    parser.add_argument("--multi_entities_train", type=str2bool, default=True)
+    parser.add_argument("--condition_variate", type=int, default=20)
+    parser.add_argument("--condition_infer", type=str2bool, default=True)
+    parser.add_argument("--stop_train_days", type=int, default=100)
+    # parser.add_argument("--train_stride", type=str2bool, default=True)
     parser.add_argument('--pre_term', help='pre_term', type=int, default=1)
     parser.add_argument('--pre_gap', help='pre_gap', type=int, default=1)
 
@@ -97,12 +110,12 @@ def get_parser():
 
     # --- meta ---
     parser.add_argument('--n_way', type=int, help='n way', default=5)
-    parser.add_argument('--k_spt', type=int, help='k shot for support set', default=5)
-    parser.add_argument('--k_qry', type=int, help='k shot for query set', default=15)
-    parser.add_argument('--task_num', type=int, help='meta batch size, namely task num', default=32)
+    parser.add_argument('--k_spt', type=int,
+                        help='k shot for support set', default=5)
+    parser.add_argument('--k_qry', type=int,
+                        help='k shot for query set', default=15)
+    parser.add_argument('--task_num', type=int,
+                        help='meta batch size, namely task num', default=32)
     parser.add_argument('--seed', type=int, help='random seed', default=0)
-
-
-
 
     return parser
